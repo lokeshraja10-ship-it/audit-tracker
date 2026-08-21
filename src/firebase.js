@@ -9,12 +9,12 @@ import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 // real access control lives in Firestore Security Rules (see firestore.rules), not in
 // keeping this config secret.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCG5QR8X_w2PUZTfx9NL80p9VLFGUQuuck",
+  authDomain: "bpcl-audit-tracker.firebaseapp.com",
+  projectId: "bpcl-audit-tracker",
+  storageBucket: "bpcl-audit-tracker.firebasestorage.app",
+  messagingSenderId: "204335423577",
+  appId: "1:204335423577:web:20b9c1a0375e190de9d148",
 };
 
 const app = initializeApp(firebaseConfig);
