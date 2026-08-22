@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, RadialBarChart, RadialBar,
   PolarAngleAxis, BarChart, Bar, XAxis, YAxis, Tooltip,
 } from "recharts";
-import { auth, signIn, logOut, watchAuth, watchState, saveState } from "./firebase";
+import { auth, signIn, logOut, watchAuth, watchState, saveState, logSignIn, watchSignInLog } from "./firebase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -27,7 +27,7 @@ const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9
 // Paste a hosted URL to the official BPCL logo image here (e.g. from your company's
 // media kit, uploaded to your own image host / GitHub repo). Leave blank to show the
 // brand-coloured "BP" placeholder mark instead.
-const LOGO_URL = "";
+const LOGO_URL = "https://raw.githubusercontent.com/lokeshraja10-ship-it/audit-tracker/main/bpcl-logo.png";
 
 const UNITS = [
   { id: "SR", name: "Southern Region" },
@@ -152,15 +152,15 @@ function generatePdfReport(state) {
   });
 
   if (auditors.length) {
-    const auditorRows = auditors.map(name => {
-      const mine = audits.filter(a => a.auditor === name);
+    const auditorRows = auditors.map(p => {
+      const mine = audits.filter(a => a.auditor === p.name);
       const c = mine.filter(isComplete).length;
-      return [name, mine.length, c, mine.length ? `${Math.round((c / mine.length) * 100)}%` : "—"];
+      return [p.name, p.unit || "—", mine.length, c, mine.length ? `${Math.round((c / mine.length) * 100)}%` : "—"];
     });
     doc.text("Auditor Performance", 14, doc.lastAutoTable.finalY + 10);
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 14,
-      head: [["Auditor", "Assigned", "Completed", "% Complete"]],
+      head: [["Auditor", "Region", "Assigned", "Completed", "% Complete"]],
       body: auditorRows,
       headStyles: { fillColor: NAVY_RGB },
       styles: { fontSize: 9 },
@@ -194,7 +194,49 @@ function DownloadPdfButton({ state }) {
   );
 }
 
+function csvEscape(val) {
+  const s = val === null || val === undefined ? "" : String(val);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function generateCsv(state) {
+  const headers = ["Unit", "Audit Name", "Auditor", "Process Owner (PO)", "Current Stage",
+    "Note Issue Date", "Pre-Draft Date", "DAR Discussion Date", "DAR Issue Date", "Final Publish Date"];
+  const rows = state.audits.map(a => {
+    const idx = currentAuditStage(a);
+    const stageLabel = idx === -1 ? "Not Started" : STAGES[idx].label;
+    return [a.unit, a.name, a.auditor || "", a.po || "", stageLabel,
+      a.noteIssueDate || "", a.preDraftDate || "", a.darDiscussionDate || "", a.darIssueDate || "", a.finalPublishDate || ""];
+  });
+  const csv = [headers, ...rows].map(row => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Audit-Data-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function DownloadCsvButton({ state }) {
+  return (
+    <button onClick={() => generateCsv(state)} style={{ ...styles.shareBtn, background: "#007BC9" }}>
+      <Download size={13} /> Download Data (CSV)
+    </button>
+  );
+}
+
 const DEFAULT_STATE = { audits: [], auditors: [], pos: [] };
+
+// Auditors/POs used to be plain name strings; they're now {name, unit} so each person
+// can be tied to a region. This makes old string-only entries safe to keep working.
+function normalizeRoster(list) {
+  return (list || []).map((item) => (typeof item === "string" ? { name: item, unit: "" } : item));
+}
+
+const ADMIN_SETUP_PIN = "bpcl-admin-2026"; // change this to your own PIN; only people who know it can open Setup
 
 /* ============================================================
    AUTH GATE
@@ -210,7 +252,11 @@ function AuthGate({ children }) {
   const handleSignIn = async (e) => {
     e.preventDefault();
     setError(""); setBusy(true);
-    try { await signIn(password); }
+    try {
+      await signIn(password);
+      const remembered = localStorage.getItem("auditor-identity");
+      logSignIn(remembered || "(app opened, not yet identified)").catch(() => {});
+    }
     catch (err) {
       const msg = err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found"
         ? "That password isn't recognised."
@@ -233,7 +279,7 @@ function AuthGate({ children }) {
       <div style={{ minHeight: "100vh", background: "#EEF5FB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Sans', sans-serif" }}>
         <form onSubmit={handleSignIn} style={{ textAlign: "center", maxWidth: 320, width: "100%", padding: "0 20px" }}>
           <div style={{ width: 48, height: 48, borderRadius: 10, background: "#FFE000", color: "#00456E", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 16, margin: "0 auto 16px" }}>BP</div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, color: "#00456E", margin: "0 0 8px" }}>AuditLive</h1>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, color: "#00456E", margin: "0 0 8px" }}>I-AuditNow</h1>
           <p style={{ color: "#5A6478", fontSize: 13.5, marginBottom: 20 }}>Enter the team password to continue.</p>
           <input
             type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" autoFocus
@@ -271,12 +317,15 @@ function AuthedApp({ user }) {
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
 
   useEffect(() => {
-    document.title = "AuditLive";
+    document.title = "I-AuditNow";
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = FONT_LINK;
     document.head.appendChild(link);
-    const unsub = watchState((s) => { setState(s); setLoading(false); });
+    const unsub = watchState((s) => {
+      setState({ ...s, auditors: normalizeRoster(s.auditors), pos: normalizeRoster(s.pos) });
+      setLoading(false);
+    });
     return unsub;
   }, []);
 
@@ -319,7 +368,7 @@ function AuthedApp({ user }) {
           {screen === "dashboard" && <Dashboard state={state} />}
           {screen === "update" && <UpdateScreen state={state} updateAudit={updateAudit} />}
           {screen === "performance" && <AuditorPerformance state={state} />}
-          {screen === "admin" && <AdminScreen state={state} persist={persist} />}
+          {screen === "admin" && <AdminGate><AdminScreen state={state} persist={persist} /></AdminGate>}
         </main>
       </div>
       <div className="print-report-only">
@@ -330,6 +379,41 @@ function AuthedApp({ user }) {
 }
 
 const spinCss = `.spin{animation:spin 0.9s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`;
+
+function AdminGate({ children }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("admin-unlocked") === "true");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (pin === ADMIN_SETUP_PIN) {
+      sessionStorage.setItem("admin-unlocked", "true");
+      setUnlocked(true);
+      logSignIn(`(admin unlock)`).catch(() => {});
+    } else {
+      setError("That PIN isn't correct.");
+    }
+  };
+
+  if (unlocked) return children;
+
+  return (
+    <div style={{ maxWidth: 340 }}>
+      <div style={styles.eyebrow}>Restricted</div>
+      <h1 style={styles.h1}>Admin PIN required</h1>
+      <p style={styles.leadText}>Setup changes are limited to admins. Enter the admin PIN to continue.</p>
+      <form onSubmit={submit} style={{ marginTop: 18 }}>
+        <input
+          type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Admin PIN" autoFocus
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #D6DAE2", fontSize: 14, marginBottom: 10 }}
+        />
+        <button type="submit" style={styles.primaryBtnSm}>Unlock Setup</button>
+        {error && <div style={{ marginTop: 10, color: "#B0483F", fontSize: 12.5 }}>{error}</div>}
+      </form>
+    </div>
+  );
+}
 
 const globalCss = `
   @keyframes livePulse {
@@ -378,7 +462,7 @@ function TopNav({ screen, setScreen, saveStatus, user }) {
         )}
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <div style={styles.navTitle}>AuditLive</div>
+            <div style={styles.navTitle}>I-AuditNow</div>
             <span style={styles.livePulseDot} />
           </div>
           <div style={styles.navSub}>Live Status, Every Region</div>
@@ -453,7 +537,10 @@ function Dashboard({ state }) {
         <div style={styles.eyebrow}>Overview — All Regions</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <h1 style={styles.h1}>Audit Status Ledger</h1>
-          <DownloadPdfButton state={state} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <DownloadCsvButton state={state} />
+            <DownloadPdfButton state={state} />
+          </div>
         </div>
         <p style={styles.leadText}>
           {total} audits on record across six units · {completed} closed · {ongoing} in progress
@@ -857,6 +944,7 @@ function UpdateScreen({ state, updateAudit }) {
   const chooseIdentity = (name) => {
     setMe(name);
     localStorage.setItem("auditor-identity", name);
+    logSignIn(name).catch(() => {});
   };
   const switchIdentity = () => {
     setMe(null);
@@ -884,7 +972,7 @@ function UpdateScreen({ state, updateAudit }) {
           <Field label="Your name">
             <select value={pendingName} onChange={e => setPendingName(e.target.value)} style={styles.select}>
               <option value="">Select your name…</option>
-              {state.auditors.map(n => <option key={n} value={n}>{n}</option>)}
+              {state.auditors.map(a => <option key={a.name} value={a.name}>{a.name}{a.unit ? ` (${a.unit})` : ""}</option>)}
             </select>
           </Field>
           <button
@@ -929,8 +1017,45 @@ function UpdateScreen({ state, updateAudit }) {
   );
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const STAGE_DATE_FIELDS = ["noteIssueDate", "preDraftDate", "darDiscussionDate", "darIssueDate", "finalPublishDate"];
+const STAGE_DATE_LABELS = {
+  noteIssueDate: "Note Issue", preDraftDate: "Pre-Draft", darDiscussionDate: "DAR Discussion",
+  darIssueDate: "DAR Issue", finalPublishDate: "Final Publish",
+};
+
+function findChronologyIssue(audit) {
+  let lastLabel = null, lastDate = null;
+  for (const field of STAGE_DATE_FIELDS) {
+    const val = audit[field];
+    if (!val) continue;
+    const d = new Date(val);
+    if (lastDate && d < lastDate) {
+      return `${STAGE_DATE_LABELS[field]} date is earlier than ${lastLabel} date — double-check this is right.`;
+    }
+    lastDate = d; lastLabel = STAGE_DATE_LABELS[field];
+  }
+  return null;
+}
+
 function AuditEditor({ audit, state, updateAudit }) {
   const stageIdx = currentAuditStage(audit);
+  const [futureDateWarning, setFutureDateWarning] = useState("");
+  const today = todayISO();
+
+  const handleDateChange = (field, value) => {
+    if (value && value > today) {
+      setFutureDateWarning(`${STAGE_DATE_LABELS[field] || "That"} date can't be in the future — it's been left unchanged.`);
+      setTimeout(() => setFutureDateWarning(""), 4000);
+      return; // blocked — future dates aren't allowed at all
+    }
+    updateAudit(audit.id, { [field]: value });
+  };
+
+  const chronologyWarning = findChronologyIssue(audit);
 
   return (
     <div style={styles.editorCard}>
@@ -956,27 +1081,34 @@ function AuditEditor({ audit, state, updateAudit }) {
 
       <div style={styles.divider} />
 
+      {futureDateWarning && (
+        <div style={styles.warningBanner}><AlertTriangle size={14} /> {futureDateWarning}</div>
+      )}
+      {!futureDateWarning && chronologyWarning && (
+        <div style={styles.warningBanner}><AlertTriangle size={14} /> {chronologyWarning}</div>
+      )}
+
       <div style={styles.formRow2}>
         <Field label="Audit Note Issue Date">
-          <input type="date" value={audit.noteIssueDate || ""} onChange={e => updateAudit(audit.id, { noteIssueDate: e.target.value })} style={styles.input} />
+          <input type="date" max={today} value={audit.noteIssueDate || ""} onChange={e => handleDateChange("noteIssueDate", e.target.value)} style={styles.input} />
         </Field>
         <Field label="Pre-Draft Audit Report Date">
-          <input type="date" value={audit.preDraftDate || ""} onChange={e => updateAudit(audit.id, { preDraftDate: e.target.value })} style={styles.input} />
+          <input type="date" max={today} value={audit.preDraftDate || ""} onChange={e => handleDateChange("preDraftDate", e.target.value)} style={styles.input} />
         </Field>
         <Field label="DAR Discussion Date">
-          <input type="date" value={audit.darDiscussionDate || ""} onChange={e => updateAudit(audit.id, { darDiscussionDate: e.target.value })} style={styles.input} />
+          <input type="date" max={today} value={audit.darDiscussionDate || ""} onChange={e => handleDateChange("darDiscussionDate", e.target.value)} style={styles.input} />
         </Field>
         <Field label="DAR Issue Date">
-          <input type="date" value={audit.darIssueDate || ""} onChange={e => updateAudit(audit.id, { darIssueDate: e.target.value })} style={styles.input} />
+          <input type="date" max={today} value={audit.darIssueDate || ""} onChange={e => handleDateChange("darIssueDate", e.target.value)} style={styles.input} />
         </Field>
         <Field label="Final Audit Report Published">
-          <input type="date" value={audit.finalPublishDate || ""} onChange={e => updateAudit(audit.id, { finalPublishDate: e.target.value })} style={styles.input} />
+          <input type="date" max={today} value={audit.finalPublishDate || ""} onChange={e => handleDateChange("finalPublishDate", e.target.value)} style={styles.input} />
         </Field>
       </div>
 
       <div style={styles.divider} />
 
-      <LocationVisits audit={audit} updateAudit={updateAudit} />
+      <LocationVisits audit={audit} updateAudit={updateAudit} today={today} />
     </div>
   );
 }
@@ -1008,17 +1140,21 @@ function StageTrail({ stageIdx }) {
   );
 }
 
-function LocationVisits({ audit, updateAudit }) {
+function LocationVisits({ audit, updateAudit, today }) {
   const visits = audit.locationVisits || [];
 
   const addVisit = () => {
-    updateAudit(audit.id, { locationVisits: [...visits, { id: uid(), type: LOCATION_TYPES[0], date: "" }] });
+    updateAudit(audit.id, { locationVisits: [...visits, { id: uid(), type: LOCATION_TYPES[0], startDate: "", endDate: "" }] });
   };
   const patchVisit = (vid, patch) => {
     updateAudit(audit.id, { locationVisits: visits.map(v => v.id === vid ? { ...v, ...patch } : v) });
   };
   const removeVisit = (vid) => {
     updateAudit(audit.id, { locationVisits: visits.filter(v => v.id !== vid) });
+  };
+  const handleVisitDate = (vid, field, value) => {
+    if (value && value > today) return; // future dates blocked, silently ignored here — same rule as the main dates
+    patchVisit(vid, { [field]: value });
   };
 
   return (
@@ -1029,15 +1165,26 @@ function LocationVisits({ audit, updateAudit }) {
       </div>
       {visits.length === 0 && <div style={styles.emptyNote}>No location visits recorded. Add one if this audit involves site visits.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {visits.map(v => (
-          <div key={v.id} style={styles.visitRow} className="fade-row">
-            <select value={v.type} onChange={e => patchVisit(v.id, { type: e.target.value })} style={{ ...styles.select, flex: 1.3 }}>
-              {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <input type="date" value={v.date} onChange={e => patchVisit(v.id, { date: e.target.value })} style={{ ...styles.input, flex: 1 }} />
-            <button onClick={() => removeVisit(v.id)} style={styles.iconBtn}><Trash2 size={14} color="#B0483F" /></button>
-          </div>
-        ))}
+        {visits.map(v => {
+          // Older visits saved before this update only have a single "date" field —
+          // shown as the start date so nothing is lost.
+          const startDate = v.startDate !== undefined ? v.startDate : (v.date || "");
+          const endDate = v.endDate || "";
+          const rangeIssue = startDate && endDate && endDate < startDate;
+          return (
+            <div key={v.id} style={{ display: "flex", flexDirection: "column", gap: 6 }} className="fade-row">
+              <div style={styles.visitRow}>
+                <select value={v.type} onChange={e => patchVisit(v.id, { type: e.target.value })} style={{ ...styles.select, flex: 1.3 }}>
+                  {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input type="date" max={today} value={startDate} placeholder="Start" onChange={e => handleVisitDate(v.id, "startDate", e.target.value)} style={{ ...styles.input, flex: 1 }} />
+                <input type="date" max={today} value={endDate} placeholder="End" onChange={e => handleVisitDate(v.id, "endDate", e.target.value)} style={{ ...styles.input, flex: 1 }} />
+                <button onClick={() => removeVisit(v.id)} style={styles.iconBtn}><Trash2 size={14} color="#B0483F" /></button>
+              </div>
+              {rangeIssue && <div style={{ ...styles.warningBanner, fontSize: 11.5 }}><AlertTriangle size={12} /> End date is before the start date — double-check this visit.</div>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1058,6 +1205,7 @@ function Field({ label, children }) {
 function AuditorPerformance({ state }) {
   const overdueThresholdDays = 90;
   const [openAuditor, setOpenAuditor] = useState(null);
+  const [regionFilter, setRegionFilter] = useState("ALL");
   const now = new Date();
   const { fyLabel, fyStartYear } = fyQuarterInfo(now);
   const quarterRanges = [
@@ -1067,7 +1215,10 @@ function AuditorPerformance({ state }) {
     { label: "Q4", start: new Date(fyStartYear + 1, 0, 1), end: new Date(fyStartYear + 1, 2, 31) },
   ];
 
-  const rows = useMemo(() => state.auditors.map(name => {
+  const visibleAuditors = regionFilter === "ALL" ? state.auditors : state.auditors.filter(p => p.unit === regionFilter);
+
+  const rows = useMemo(() => visibleAuditors.map(p => {
+    const name = p.name;
     const mine = state.audits.filter(a => a.auditor === name);
     const total = mine.length;
     const completed = mine.filter(isComplete).length;
@@ -1087,8 +1238,8 @@ function AuditorPerformance({ state }) {
       return { label: q.label, completed: closedInQ.length, avg: qAvg };
     });
 
-    return { name, total, completed, inProgress, notStarted, overdue, avg, pct, quarters, audits: mine };
-  }).sort((a, b) => b.total - a.total), [state]);
+    return { name, unit: p.unit, total, completed, inProgress, notStarted, overdue, avg, pct, quarters, audits: mine };
+  }).sort((a, b) => b.total - a.total), [visibleAuditors, state.audits]);
 
   const unassigned = state.audits.filter(a => !a.auditor).length;
 
@@ -1103,7 +1254,14 @@ function AuditorPerformance({ state }) {
         </p>
       </div>
 
-      {rows.length === 0 && <p style={styles.emptyNote}>No auditors set up yet — add names under Setup → Auditors.</p>}
+      <Field label="Filter by region">
+        <select value={regionFilter} onChange={e => setRegionFilter(e.target.value)} style={{ ...styles.select, maxWidth: 260 }}>
+          <option value="ALL">All regions</option>
+          {UNITS.map(u => <option key={u.id} value={u.id}>{u.id} — {u.name}</option>)}
+        </select>
+      </Field>
+
+      {rows.length === 0 && <p style={styles.emptyNote}>No auditors match this filter yet.</p>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {rows.map(r => {
@@ -1112,7 +1270,7 @@ function AuditorPerformance({ state }) {
             <div key={r.name} style={styles.perfCard} className="card-hover">
               <button type="button" onClick={() => setOpenAuditor(isOpen ? null : r.name)} style={styles.perfCardHead}>
                 <div style={{ textAlign: "left" }}>
-                  <div style={styles.perfName}>{r.name}</div>
+                  <div style={styles.perfName}>{r.name} {r.unit && <span style={{ fontWeight: 400, fontSize: 11.5, color: "#8A93A6" }}>· {r.unit}</span>}</div>
                   <div style={styles.perfSub}>{r.total} assigned · {r.completed} completed · avg {r.avg !== null ? `${r.avg}d` : "—"}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1196,10 +1354,10 @@ function PrintReport({ state }) {
     return { ...u, total: ua.length, completed: uc, active, notStarted: uns, avg, pct: ua.length ? Math.round((uc / ua.length) * 100) : 0 };
   });
 
-  const auditorRows = auditors.map(name => {
-    const mine = audits.filter(a => a.auditor === name);
+  const auditorRows = auditors.map(p => {
+    const mine = audits.filter(a => a.auditor === p.name);
     const c = mine.filter(isComplete).length;
-    return { name, total: mine.length, completed: c, pct: mine.length ? Math.round((c / mine.length) * 100) : 0 };
+    return { name: p.name, total: mine.length, completed: c, pct: mine.length ? Math.round((c / mine.length) * 100) : 0 };
   });
 
   const pStyle = { fontFamily: "Georgia, serif", color: "#00456E" };
@@ -1306,11 +1464,55 @@ function AdminScreen({ state, persist }) {
         <button onClick={() => setTab("audits")} style={{ ...styles.subNavBtn, ...(tab === "audits" ? styles.subNavBtnActive : {}) }}><FileStack size={14} /> Audits</button>
         <button onClick={() => setTab("auditors")} style={{ ...styles.subNavBtn, ...(tab === "auditors" ? styles.subNavBtnActive : {}) }}><Users size={14} /> Auditors</button>
         <button onClick={() => setTab("pos")} style={{ ...styles.subNavBtn, ...(tab === "pos" ? styles.subNavBtnActive : {}) }}><UserSquare2 size={14} /> POs</button>
+        <button onClick={() => setTab("log")} style={{ ...styles.subNavBtn, ...(tab === "log" ? styles.subNavBtnActive : {}) }}><Clock size={14} /> Sign-in Log</button>
       </div>
 
       {tab === "audits" && <AuditsAdmin state={state} persist={persist} />}
       {tab === "auditors" && <NameListAdmin listKey="auditors" title="Auditor Roster" state={state} persist={persist} />}
       {tab === "pos" && <NameListAdmin listKey="pos" title="Process Owner (PO) Roster" state={state} persist={persist} />}
+      {tab === "log" && <SignInLogPanel />}
+    </div>
+  );
+}
+
+function SignInLogPanel() {
+  const [entries, setEntries] = useState(null);
+
+  useEffect(() => {
+    const unsub = watchSignInLog(setEntries);
+    return unsub;
+  }, []);
+
+  const fmtWhen = (at) => {
+    if (!at) return "—";
+    const d = at.toDate ? at.toDate() : new Date(at);
+    return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div style={styles.panel}>
+      <div style={styles.panelTitle}>Sign-in Log</div>
+      <p style={{ fontSize: 12, color: "#8A93A6", marginTop: -8, marginBottom: 14 }}>
+        Every time someone opens the shared login or picks their name on Update Audit, it's recorded here — last 100 entries, most recent first.
+        Since everyone shares one login, "who signed in" is really "who identified themselves" — someone could type another name, so treat this as a helpful trail, not proof.
+      </p>
+      {entries === null && <div style={styles.emptyNote}>Loading…</div>}
+      {entries && entries.length === 0 && <div style={styles.emptyNote}>No sign-ins recorded yet.</div>}
+      {entries && entries.length > 0 && (
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead><tr><th style={styles.th}>Name</th><th style={styles.th}>When</th></tr></thead>
+            <tbody>
+              {entries.map(e => (
+                <tr key={e.id} className="fade-row">
+                  <td style={styles.td}>{e.name}</td>
+                  <td style={{ ...styles.td, fontFamily: "'IBM Plex Mono', monospace" }}>{fmtWhen(e.at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -1324,8 +1526,8 @@ function AuditsAdmin({ state, persist }) {
   const importPasted = () => {
     const lines = pasteText.split("\n").map(s => s.trim()).filter(Boolean);
     if (!lines.length) return;
-    const auditorSet = new Set(state.auditors);
-    const poSet = new Set(state.pos);
+    const auditorMap = new Map(state.auditors.map(p => [p.name, p]));
+    const poMap = new Map(state.pos.map(p => [p.name, p]));
     const newAudits = lines.map(line => {
       // Prefer splitting on tabs if any are present (paste from Excel, or our own
       // generated import blocks) — this avoids breaking on commas that are part of
@@ -1333,8 +1535,10 @@ function AuditsAdmin({ state, persist }) {
       // Only fall back to comma-splitting for simple, tab-free single-line pastes.
       const parts = line.includes("\t") ? line.split("\t") : line.split(",");
       const [name = "", auditor = "", po = ""] = parts.map(s => s.trim());
-      if (auditor) auditorSet.add(auditor);
-      if (po) poSet.add(po);
+      // New names picked up here get tagged with the unit being imported into —
+      // matches how you're actually organising people (region-specific rosters).
+      if (auditor && !auditorMap.has(auditor)) auditorMap.set(auditor, { name: auditor, unit });
+      if (po && !poMap.has(po)) poMap.set(po, { name: po, unit });
       return {
         id: uid(), name, unit, auditor, po,
         noteIssueDate: "", locationVisits: [], preDraftDate: "",
@@ -1343,7 +1547,7 @@ function AuditsAdmin({ state, persist }) {
       };
     }).filter(a => a.name);
     if (!newAudits.length) return;
-    persist({ ...state, audits: [...state.audits, ...newAudits], auditors: Array.from(auditorSet), pos: Array.from(poSet) });
+    persist({ ...state, audits: [...state.audits, ...newAudits], auditors: Array.from(auditorMap.values()), pos: Array.from(poMap.values()) });
     setPasteText("");
     setPasteOpen(false);
   };
@@ -1413,6 +1617,14 @@ function AuditsAdmin({ state, persist }) {
 
 function UnitAuditGroup({ unit, audits, removeAudit, assignAudit, auditors, pos }) {
   const [open, setOpen] = useState(false);
+  // Only show people tied to this unit, HQ (available everywhere), or with no
+  // region set yet (older entries, kept usable) — this is what "region should be
+  // updatable" for auditors/POs actually enforces: you can't assign a WR auditor
+  // to an SR audit by accident.
+  const matchesUnit = (p) => !p.unit || p.unit === unit.id || p.unit === "HQ";
+  const unitAuditors = auditors.filter(matchesUnit);
+  const unitPos = pos.filter(matchesUnit);
+
   return (
     <div style={styles.groupBlock}>
       <button onClick={() => setOpen(v => !v)} style={styles.groupHead}>
@@ -1428,11 +1640,11 @@ function UnitAuditGroup({ unit, audits, removeAudit, assignAudit, auditors, pos 
               <span style={styles.assignRowName}>{a.name}</span>
               <select value={a.auditor || ""} onChange={e => assignAudit(a.id, { auditor: e.target.value })} style={{ ...styles.select, ...styles.assignSelect }}>
                 <option value="">Assign auditor…</option>
-                {auditors.map(n => <option key={n} value={n}>{n}</option>)}
+                {unitAuditors.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
               </select>
               <select value={a.po || ""} onChange={e => assignAudit(a.id, { po: e.target.value })} style={{ ...styles.select, ...styles.assignSelect }}>
                 <option value="">Assign PO…</option>
-                {pos.map(n => <option key={n} value={n}>{n}</option>)}
+                {unitPos.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
               </select>
               <button onClick={() => removeAudit(a.id)} style={styles.iconBtn}><Trash2 size={13} color="#B0483F" /></button>
             </div>
@@ -1446,40 +1658,66 @@ function UnitAuditGroup({ unit, audits, removeAudit, assignAudit, auditors, pos 
 function NameListAdmin({ listKey, title, state, persist }) {
   const [pasteText, setPasteText] = useState("");
   const [single, setSingle] = useState("");
+  const [singleUnit, setSingleUnit] = useState("");
+  const [pasteUnit, setPasteUnit] = useState("");
   const list = state[listKey];
 
   const addSingle = () => {
     const v = single.trim();
-    if (!v || list.includes(v)) return;
-    persist({ ...state, [listKey]: [...list, v] });
+    if (!v || list.some(p => p.name === v)) return;
+    persist({ ...state, [listKey]: [...list, { name: v, unit: singleUnit }] });
     setSingle("");
   };
   const importPasted = () => {
     const names = pasteText.split("\n").map(s => s.trim()).filter(Boolean);
-    const merged = Array.from(new Set([...list, ...names]));
-    persist({ ...state, [listKey]: merged });
+    const map = new Map(list.map(p => [p.name, p]));
+    names.forEach(n => { if (!map.has(n)) map.set(n, { name: n, unit: pasteUnit }); });
+    persist({ ...state, [listKey]: Array.from(map.values()) });
     setPasteText("");
   };
-  const remove = (name) => persist({ ...state, [listKey]: list.filter(n => n !== name) });
+  const remove = (name) => persist({ ...state, [listKey]: list.filter(p => p.name !== name) });
+  const updateUnit = (name, newUnit) => persist({ ...state, [listKey]: list.map(p => p.name === name ? { ...p, unit: newUnit } : p) });
 
   return (
     <div style={styles.panel}>
       <div style={styles.panelTitle}>{title}</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input value={single} onChange={e => setSingle(e.target.value)} placeholder="Add a name" style={{ ...styles.input, flex: 1 }}
-          onKeyDown={e => e.key === "Enter" && addSingle()} />
-        <button onClick={addSingle} style={styles.primaryBtnSm}><Plus size={14} /></button>
+      <p style={{ fontSize: 12, color: "#8A93A6", marginTop: -8, marginBottom: 14 }}>
+        Set each person's region so they only show up as an option for that region's audits. Leave blank or choose HQ for someone who covers everywhere.
+      </p>
+      <div style={styles.formRow2}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={single} onChange={e => setSingle(e.target.value)} placeholder="Add a name" style={{ ...styles.input, flex: 1 }}
+            onKeyDown={e => e.key === "Enter" && addSingle()} />
+          <select value={singleUnit} onChange={e => setSingleUnit(e.target.value)} style={{ ...styles.select, width: 90 }}>
+            <option value="">Region…</option>
+            {UNITS.map(u => <option key={u.id} value={u.id}>{u.id}</option>)}
+          </select>
+          <button onClick={addSingle} style={styles.primaryBtnSm}><Plus size={14} /></button>
+        </div>
       </div>
-      <textarea value={pasteText} onChange={e => setPasteText(e.target.value)} placeholder={"Or paste multiple names, one per line"} style={styles.textarea} rows={3} />
-      <button onClick={importPasted} style={{ ...styles.primaryBtnSm, marginTop: 8 }}><Upload size={13} /> Import list</button>
 
-      <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ marginTop: 14 }}>
+        <textarea value={pasteText} onChange={e => setPasteText(e.target.value)} placeholder={"Or paste multiple names, one per line"} style={styles.textarea} rows={3} />
+        <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+          <select value={pasteUnit} onChange={e => setPasteUnit(e.target.value)} style={{ ...styles.select, width: 140 }}>
+            <option value="">All go to: (none)</option>
+            {UNITS.map(u => <option key={u.id} value={u.id}>All go to: {u.id}</option>)}
+          </select>
+          <button onClick={importPasted} style={styles.primaryBtnSm}><Upload size={13} /> Import list</button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 8 }}>
         {list.length === 0 && <div style={styles.emptyNote}>No names added yet.</div>}
-        {list.map(n => (
-          <span key={n} style={styles.chip}>
-            {n}
-            <button onClick={() => remove(n)} style={styles.chipX}><X size={11} /></button>
-          </span>
+        {list.map(p => (
+          <div key={p.name} style={styles.rosterRow}>
+            <span style={{ flex: 1, fontSize: 13.5 }}>{p.name}</span>
+            <select value={p.unit || ""} onChange={e => updateUnit(p.name, e.target.value)} style={{ ...styles.select, ...styles.assignSelect, maxWidth: 130 }}>
+              <option value="">No region set</option>
+              {UNITS.map(u => <option key={u.id} value={u.id}>{u.id} — {u.name}</option>)}
+            </select>
+            <button onClick={() => remove(p.name)} style={styles.iconBtn}><Trash2 size={13} color="#B0483F" /></button>
+          </div>
         ))}
       </div>
     </div>
@@ -1504,7 +1742,7 @@ const styles = {
     display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 13, letterSpacing: 0.5,
   },
-  navLogoImg: { height: 34, width: "auto", maxWidth: 120, objectFit: "contain" },
+  navLogoImg: { height: 34, width: "auto", maxWidth: 110, objectFit: "contain", background: "#fff", borderRadius: 7, padding: "3px 6px" },
   navTitle: { color: "#fff", fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1 },
   navSub: { color: "#9FB0C7", fontSize: 11.5, marginTop: 1 },
   livePulseDot: { width: 7, height: 7, borderRadius: "50%", background: "#4C8577", display: "inline-block", boxShadow: "0 0 0 rgba(76,133,119,0.6)", animation: "livePulse 2s infinite" },
@@ -1598,6 +1836,7 @@ const styles = {
   fieldLabel: { fontSize: 12, fontWeight: 600, color: "#5A6478" },
   select: { padding: "9px 10px", borderRadius: 7, border: "1px solid #D6DAE2", background: "#fff", fontSize: 13.5, color: "#1C2733", outline: "none" },
   readOnlyPill: { padding: "9px 10px", borderRadius: 7, border: "1px solid #E2E6ED", background: "#F8F9FB", fontSize: 13.5, color: "#5A6478" },
+  warningBanner: { display: "flex", alignItems: "center", gap: 8, background: "#FBF1E1", color: "#8A6A00", border: "1px solid #F0DCA8", borderRadius: 8, padding: "9px 12px", fontSize: 12.5, fontWeight: 500 },
   input: { padding: "9px 10px", borderRadius: 7, border: "1px solid #D6DAE2", background: "#fff", fontSize: 13.5, color: "#1C2733", outline: "none", fontFamily: "'IBM Plex Mono', monospace" },
   textarea: { width: "100%", padding: "10px 12px", borderRadius: 7, border: "1px solid #D6DAE2", fontSize: 13, resize: "vertical", outline: "none" },
 
@@ -1636,6 +1875,7 @@ const styles = {
   groupHead: { display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", fontSize: 13.5, color: "#1C2733", padding: "4px 0", width: "100%", textAlign: "left" },
   auditRow: { display: "flex", alignItems: "center", gap: 10, fontSize: 13, padding: "5px 8px", background: "#F8F9FB", borderRadius: 6 },
   assignRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 8px", background: "#F8F9FB", borderRadius: 6, flexWrap: "wrap" },
+  rosterRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "8px 10px", background: "#F8F9FB", borderRadius: 6, flexWrap: "wrap" },
   assignRowName: { flex: "1 1 160px", minWidth: 120 },
   assignSelect: { fontSize: 12.5, padding: "6px 8px", flex: "1 1 140px", minWidth: 130 },
 
