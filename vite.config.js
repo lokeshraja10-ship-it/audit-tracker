@@ -1,10 +1,13 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Set this to "/your-repo-name/" before deploying to GitHub Pages.
-const BASE_PATH = "/audit-tracker/";
+const BASE_PATH = "/";
 
 export default defineConfig({
   plugins: [react()],
   base: BASE_PATH,
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+  },
 });
