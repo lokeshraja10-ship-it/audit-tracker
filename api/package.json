@@ -1,0 +1,10 @@
+{
+  "name": "iauditnow-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for I-AuditNow (reads/writes Cosmos DB)",
+  "main": "src/functions/*.js",
+  "dependencies": {
+    "@azure/cosmos": "^4.1.1",
+    "@azure/functions": "^4.5.1"
+  }
+}
