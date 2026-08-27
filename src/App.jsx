@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, RadialBarChart, RadialBar,
   PolarAngleAxis, BarChart, Bar, XAxis, YAxis, Tooltip,
 } from "recharts";
-import { auth, signIn, logOut, watchAuth, watchState, saveState, logSignIn, watchSignInLog } from "./firebase";
+import { auth, signIn, logOut, watchAuth, watchState, saveState, logSignIn, watchSignInLog } from "./data";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 /* ============================================================
