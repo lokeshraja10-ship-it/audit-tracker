@@ -1,18 +1,866 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>I-AuditNow — Internal Audit Department</title>
-    <link rel="manifest" href="%BASE_URL%manifest.json" />
-    <meta name="theme-color" content="#00456E" />
-    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png" />
-    <link rel="icon" href="%BASE_URL%icon-192.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  </head>
-  <body style="margin:0;">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>i-Audit-Liv · BPCL Internal Audit</title>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="data.js"></script>
+
+<style>
+  :root{
+    --navy:#003a72; --navy2:#00539c; --blue:#0072bc; --blue-l:#e6f1fa;
+    --gold:#fdb913; --gold2:#f7a800;
+    --ink:#1c2733; --muted:#5b6b7f; --line:#e2e8f1;
+    --bg:#f3f6fa; --card:#ffffff;
+    --green:#1a9f6b; --amber:#e08a00; --red:#d2453f;
+    --shadow:0 1px 3px rgba(0,58,114,.08),0 8px 24px rgba(0,58,114,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  header.app{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;padding:12px 26px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30;box-shadow:0 2px 12px rgba(0,0,0,.18);border-bottom:3px solid var(--gold)}
+  .brand-logo{height:44px;width:auto;max-width:150px;display:block;background:#fff;border-radius:8px;padding:5px 8px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  .brand-badge{width:46px;height:46px;border-radius:10px;background:var(--gold);color:var(--navy);display:grid;place-items:center;font-weight:900;font-size:18px;cursor:pointer;box-shadow:inset 0 -3px 0 rgba(0,0,0,.14);letter-spacing:.5px}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.3px;font-weight:800}
+  .brand p{margin:2px 0 0;font-size:11.5px;opacity:.85}
+  header.app .spacer{flex:1}
+  .org-tag{font-size:12px;opacity:.9;border-left:1px solid rgba(255,255,255,.3);padding-left:14px;font-weight:600}
+  .org-tag b{color:var(--gold)}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px}
+  .crumbs{font-size:13px;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .crumbs button{all:unset;cursor:pointer;color:var(--blue);font-weight:600}
+  .crumbs .sep{opacity:.5}
+  .page-title{font-size:22px;font-weight:800;margin:0 0 4px;color:var(--navy)}
+  .page-sub{color:var(--muted);font-size:13.5px;margin:0 0 22px}
+  .home2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px}
+  .homecard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:30px;box-shadow:var(--shadow);cursor:pointer;transition:.18s;position:relative;overflow:hidden;min-height:230px;display:flex;flex-direction:column}
+  .homecard:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,58,114,.16);border-color:#bcd4ea}
+  .homecard .hc-top{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:32px;margin-bottom:18px}
+  .homecard.atr .hc-top{background:#fff3d6} .homecard.rt .hc-top{background:var(--blue-l)}
+  .homecard h3{margin:0 0 8px;font-size:22px;color:var(--navy)}
+  .homecard p{margin:0;color:var(--muted);font-size:14px;line-height:1.6;flex:1}
+  .homecard .go{margin-top:18px;font-weight:700;color:var(--blue);font-size:14px}
+  .homecard .ribbon{position:absolute;top:0;left:0;right:0;height:6px}
+  .homecard.atr .ribbon{background:var(--gold)} .homecard.rt .ribbon{background:var(--blue)}
+  .homecard .mini{display:flex;gap:18px;margin-top:16px}
+  .homecard .mini b{display:block;font-size:20px;color:var(--navy)} .homecard .mini span{font-size:11px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px}
+  .bu-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+  .bu-card:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,58,114,.14);border-color:#bcd4ea}
+  .bu-card.disabled{cursor:not-allowed;opacity:.72}
+  .bu-ic{font-size:30px;line-height:1}
+  .bu-name{font-size:18px;font-weight:800;margin:12px 0 2px;color:var(--navy)}
+  .bu-full{font-size:12.5px;color:var(--muted)}
+  .bu-stats{display:flex;gap:16px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}
+  .bu-stat b{display:block;font-size:18px;color:var(--navy)} .bu-stat span{font-size:11px;color:var(--muted)}
+  .pill{position:absolute;top:14px;right:14px;font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:999px}
+  .pill.active{background:#e5f6ee;color:var(--green)} .pill.coming{background:#f1f3f7;color:var(--muted)}
+  .accent{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--gold)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+  .kpi b{display:block;font-size:22px;color:var(--navy);line-height:1.1} .kpi span{font-size:11.5px;color:var(--muted)}
+  .kpi.warn b{color:var(--red)} .kpi.hi b{color:var(--amber)} .kpi.ok b{color:var(--green)}
+  .kpi .k-top{height:4px;border-radius:3px;margin:-14px -16px 12px;background:var(--blue)}
+  .kpi.warn .k-top{background:var(--red)} .kpi.hi .k-top{background:var(--gold)} .kpi.ok .k-top{background:var(--green)}
+  .navcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:22px}
+  .navcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.16s;position:relative;overflow:hidden;text-align:left}
+  .navcard:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,58,114,.14);border-color:#bcd4ea}
+  .navcard.on{background:var(--navy);border-color:var(--navy)}
+  .navcard.on .nc-label,.navcard.on .nc-ic{color:#fff}
+  .navcard.on .nc-num{color:var(--navy);background:var(--gold)}
+  .navcard.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--gold)}
+  .nc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .nc-ic{font-size:22px;line-height:1}
+  .nc-num{font-size:13px;font-weight:800;background:var(--blue-l);color:var(--blue);padding:2px 9px;border-radius:999px}
+  .nc-label{font-size:14px;font-weight:700;color:var(--ink);line-height:1.25}
+  .nc-sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .navcard.on .nc-sub{color:rgba(255,255,255,.7)}
+  .subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+  .stab{all:unset;cursor:pointer;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid var(--line);color:#334155;display:flex;align-items:center;gap:8px;background:#fff}
+  .stab:hover{background:var(--blue-l)}
+  .stab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .stab.on.imp{background:#e5f6ee;border-color:#bfe6cf;color:var(--green)}
+  .stab.on.flat{background:#eef1f6;border-color:#d5dbe6;color:var(--muted)}
+  .stab.on.eff{background:#fdecec;border-color:#f2c9c9;color:var(--red)}
+  .stab .sdot{width:8px;height:8px;border-radius:50%}
+  .stab .sc{font-size:11px;font-weight:800;background:rgba(0,0,0,.06);padding:1px 7px;border-radius:999px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h2{margin:0 0 4px;font-size:20px;color:var(--navy)}
+  .intro{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 18px}
+  .sec-h{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--blue);margin:24px 0 12px;display:flex;align-items:center;gap:10px}
+  .sec-h .ln{flex:1;height:1px;background:var(--line)}
+  .badge{display:inline-block;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px}
+  .badge.imp{background:#e5f6ee;color:var(--green)} .badge.flat{background:#eef1f6;color:var(--muted)} .badge.eff{background:#fdecec;color:var(--red)}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .tcard{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fff}
+  .tcard .tt{font-size:14.5px;font-weight:700;margin:0 0 3px;color:var(--navy)}
+  .tcard .tg{font-size:12px;font-weight:700;margin:0 0 1px}
+  .tcard .tg.imp{color:var(--green)} .tcard .tg.flat{color:var(--muted)} .tcard .tg.eff{color:var(--red)} .tcard .tg.up{color:var(--amber)}
+  .tcard .ts{font-size:11.5px;color:var(--muted);margin:0 0 10px}
+  .chart{display:flex;align-items:flex-end;gap:4px;height:96px;padding:14px 2px 0;border-bottom:1px solid var(--line)}
+  .bar{flex:1;background:linear-gradient(180deg,var(--blue),var(--navy));border-radius:3px 3px 0 0;position:relative;min-height:2px}
+  .bar:hover{background:var(--gold)} .bar.peak{background:linear-gradient(180deg,var(--gold),var(--gold2))}
+  .bar.imp{background:linear-gradient(180deg,#37b98a,#1a9f6b)} .bar.eff{background:linear-gradient(180deg,#e26d6d,#c23b3b)}
+  .bar .v{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:700;color:var(--navy)}
+  .xlab{display:flex;gap:4px;margin-top:4px}
+  .xlab span{flex:1;text-align:center;font-size:8.5px;color:var(--muted)}
+  .box{border-radius:11px;padding:14px 16px;font-size:13.5px;line-height:1.55;margin-top:14px}
+  .box.why{background:#fff8ec;border:1px solid #f6e4b8}
+  .box.sol{background:#eaf7f0;border:1px solid #bfe6cf}
+  .box.take{background:var(--blue-l);border:1px solid #cfe0f5}
+  .box b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+  .box.why b{color:var(--amber)} .box.sol b{color:var(--green)} .box.take b{color:var(--blue)}
+  table.tb{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  table.tb th{background:var(--navy);color:#fff;text-align:left;padding:10px;font-weight:600}
+  table.tb th.n,table.tb td.n{text-align:center}
+  table.tb td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.tb tr:hover td{background:#fafbfd}
+  table.tb tr.tot td{background:#eef4fb;font-weight:800;color:var(--navy);border-top:2px solid var(--navy)}
+  .chip{display:inline-block;min-width:26px;text-align:center;font-weight:800;border-radius:7px;padding:2px 7px;font-size:12.5px}
+  .chip.h{background:#fdecec;color:var(--red)} .chip.o{background:#fff5e6;color:var(--amber)} .chip.z{color:var(--muted)} .chip.m{background:var(--blue-l);color:var(--blue)} .chip.l{background:#eef1f6;color:var(--muted)}
+  .lnk{color:var(--blue);font-weight:700;cursor:pointer} .lnk:hover{text-decoration:underline}
+  .dd{display:grid;grid-template-columns:230px 1fr;gap:16px;align-items:start}
+  .ddnav{background:#fff;border:1px solid var(--line);border-radius:13px;padding:8px;box-shadow:var(--shadow);position:sticky;top:150px}
+  .ddnav .it{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;color:#334155}
+  .ddnav .it:hover{background:var(--blue-l)} .ddnav .it.on{background:var(--navy);color:#fff}
+  .ddnav .dot{width:8px;height:8px;border-radius:50%;flex:none;background:#c3d3e6}
+  .ddnav .it.on .dot{background:var(--gold)}
+  .ddnav h5{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:10px 10px 6px}
+  .panel.dv{padding:20px 22px}
+  .dv h2{font-size:18px;margin:0 0 5px}
+  .dv-sub{color:var(--muted);font-size:12.5px;line-height:1.5;margin:0 0 14px}
+  .dv-stats{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .dv-stats .s{flex:1;min-width:104px;background:#fafbfd;border:1px solid var(--line);border-radius:11px;padding:11px 10px;text-align:center}
+  .dv-stats .s b{display:block;font-size:23px;color:var(--navy);line-height:1.05} .dv-stats .s span{font-size:10px;color:var(--muted);line-height:1.25;display:block;margin-top:3px}
+  .dv-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;margin-bottom:12px}
+  .dv-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--blue);font-weight:800;margin-bottom:8px}
+  ul.obs{margin:0;padding:0;list-style:none}
+  ul.obs li{display:flex;justify-content:space-between;gap:10px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:12.5px;line-height:1.35}
+  ul.obs li .cnt{font-weight:800;color:var(--blue);flex:none}
+  .rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+  .rc{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:11px;padding:14px;background:#fff}
+  .rc b{display:block;font-size:13.5px;margin-bottom:5px;color:var(--navy)} .rc span{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .hbar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12.5px}
+  .hbar-row .lbl{width:130px;font-weight:600;color:var(--navy);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hbar-track{flex:1;background:#eef1f6;border-radius:6px;height:22px;position:relative;overflow:hidden}
+  .hbar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--blue),var(--navy));display:flex;align-items:center}
+  .hbar-row .val{width:52px;text-align:right;font-weight:800;color:var(--navy)}
+  .hbar-row.cmp{margin-bottom:5px;font-size:12px}
+  .hbar-row.cmp .hbar-track{height:16px}
+  .hbar-row.cmp .lbl{width:120px}
+  .hbar-row.cmp .val{width:40px}
+  .entlist{max-height:300px;overflow-y:auto;padding-right:6px}
+  .entlist::-webkit-scrollbar{width:7px}
+  .entlist::-webkit-scrollbar-thumb{background:#c3d3e6;border-radius:4px}
+  .entlist::-webkit-scrollbar-track{background:transparent}
+  table.heat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  table.heat th,table.heat td{padding:9px;text-align:center;border:1px solid var(--line)}
+  table.heat th{background:var(--navy);color:#fff;font-weight:600}
+  table.heat td.pri{background:#eef4fb;font-weight:800;color:var(--navy);text-align:left}
+  .bands{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .band{border-radius:10px;padding:10px 16px;color:#fff;font-weight:700;font-size:13px}
+  .band span{display:block;font-size:22px}
+  .band.c{background:#b23131} .band.h{background:#e08a00} .band.m{background:var(--blue)} .band.l{background:#5a6b80}
+  .icard{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fff;position:relative;overflow:hidden}
+  .icard .itop{border-left:4px solid var(--blue);padding-left:10px;margin-bottom:10px}
+  .icard h4{margin:0;font-size:14.5px;color:var(--navy)}
+  .icard .isub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .icard .ipct{position:absolute;top:14px;right:16px;font-size:12px;font-weight:800;color:var(--blue);background:var(--blue-l);padding:2px 9px;border-radius:999px}
+  .hml{display:flex;gap:6px;margin:10px 0}
+  .spread{display:flex;gap:4px;margin-top:6px}
+  .spread .sp{flex:1;text-align:center;background:#fafbfd;border:1px solid var(--line);border-radius:7px;padding:5px 2px}
+  .spread .sp b{display:block;font-size:13px;color:var(--navy)} .spread .sp span{font-size:9px;color:var(--muted)}
+  .itop-terr{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .scgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .flip{perspective:1200px;min-height:200px;cursor:pointer}
+  .flip .flip-inner{position:relative;width:100%;height:200px;transition:transform .55s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d}
+  .flip.on .flip-inner{transform:rotateY(180deg)}
+  .flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid var(--line);border-radius:13px;padding:15px;background:#fff;overflow:hidden;box-shadow:var(--shadow)}
+  .flip-back{transform:rotateY(180deg);background:#fbfcfe}
+  .sc-top{position:absolute;left:0;right:0;top:0;height:4px}
+  .sc-front h4{margin:0;font-size:14.5px;color:var(--navy);display:flex;justify-content:space-between;align-items:baseline}
+  .sc-front h4 b{font-size:22px}
+  .sc-sub{font-size:11px;color:var(--muted);margin:2px 0 12px}
+  .sc-chips{display:flex;gap:6px;margin-bottom:8px}
+  .sc-legacy{font-size:11px;font-weight:700;color:var(--red);background:#fdecec;border-radius:7px;padding:5px 9px;margin-bottom:4px;line-height:1.3}
+  .sc-legacy.zero{color:var(--muted);background:#eef1f6}
+  .sc-foot{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px;position:absolute;left:15px;right:15px;bottom:14px}
+  .sc-foot b{font-size:14px}
+  .flip-hint{position:absolute;bottom:12px;right:14px;font-size:9.5px;color:var(--muted);opacity:.8}
+  .sc-back h4{margin:0 0 2px;font-size:14px;color:var(--navy)}
+  .cyc-row{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:12.5px}
+  .cyc-row .ci{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:800;color:#fff;flex:none;font-size:13px}
+  .cyc-row.red .ci{background:var(--green)} .cyc-row.add .ci{background:var(--amber)}
+  .cyc-row b{color:var(--navy)} .cyc-row span{color:var(--muted)}
+  .cyc-net{margin-top:8px;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;text-align:center}
+  .cyc-net.pos{background:#e5f6ee;color:var(--green)} .cyc-net.neg{background:#fdecec;color:var(--red)} .cyc-net.zero{background:#eef1f6;color:var(--muted)}
+  .cyc-note{font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.4}
+  .conc-row{display:flex;align-items:center;gap:12px;margin-bottom:11px;font-size:12.5px}
+  .conc-lbl{width:150px;font-weight:600;color:var(--navy);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .conc-track{flex:1;background:#dbe6f2;border-radius:7px;height:22px;position:relative;overflow:hidden}
+  .conc-fill{height:100%;background:linear-gradient(90deg,#e06a63,var(--red));border-radius:7px 0 0 7px;display:flex;align-items:center;justify-content:flex-end}
+  .conc-fill span{color:#fff;font-size:10.5px;font-weight:800;padding-right:7px;white-space:nowrap}
+  .conc-cap{width:150px;font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:left}
+  .conc-cap b{color:var(--navy)}
+  .lg-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .lg-toolbar .grow{flex:1}
+  table.lg{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.lg th{background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-weight:600;white-space:nowrap;position:sticky;top:0}
+  table.lg td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.lg tr:hover td{background:#fafbfd}
+  table.lg input,table.lg .lg-date{border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;width:100%;background:#fff}
+  table.lg input:focus,table.lg .lg-date:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+  .lg-days{font-weight:800;color:var(--red)}
+  .lg-scroll{max-height:640px;overflow:auto;border:1px solid var(--line);border-radius:11px}
+  .savebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#eef7f1;border:1px solid #bfe6cf;border-radius:11px;padding:10px 14px;margin-top:14px;font-size:12.5px}
+  .qform{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#fafbfd;border:1px solid var(--line);border-radius:13px;padding:18px;margin-bottom:22px}
+  .qform .full{grid-column:1 / -1}
+  .qfield label{display:block;font-size:11.5px;font-weight:700;color:var(--navy);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+  .qfield input,.qfield select,.qfield textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13.5px;font-family:inherit;color:var(--ink);background:#fff}
+  .qfield textarea{min-height:74px;resize:vertical}
+  .qfield input:focus,.qfield select:focus,.qfield textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+  .qbtn{all:unset;cursor:pointer;background:var(--navy);color:#fff;font-size:13.5px;font-weight:700;padding:10px 22px;border-radius:9px;display:inline-block}
+  .qbtn:hover{background:var(--navy2)} .qbtn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)} .qbtn.sm{font-size:12px;padding:8px 16px}
+  .qcard{border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:11px;padding:14px 16px;margin-bottom:12px;background:#fff}
+  .qcard.answered{border-left-color:var(--green)}
+  .qcard .qh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px}
+  .qcard .qsub{font-size:14px;font-weight:700;color:var(--navy)}
+  .qcard .qmeta{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .qcard .qtext{font-size:13.5px;line-height:1.55;margin:8px 0 0}
+  .qstatus{font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .qstatus.open{background:#fff5e6;color:var(--amber)} .qstatus.answered{background:#e5f6ee;color:var(--green)}
+  .qans{margin-top:10px;padding:10px 12px;background:#eaf7f0;border:1px solid #bfe6cf;border-radius:9px;font-size:13px;line-height:1.5}
+  .qans b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:3px}
+  .qreply{margin-top:10px;padding:10px 12px;background:#f4f8fd;border:1px dashed #bcd4ea;border-radius:9px}
+  .qreply textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;min-height:56px;resize:vertical}
+  .qreply textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+  .qempty{text-align:center;color:var(--muted);font-size:13px;padding:26px;border:1px dashed var(--line);border-radius:11px}
+  .revbadge{font-size:10.5px;font-weight:800;color:var(--green);background:#e5f6ee;padding:4px 10px;border-radius:999px}
+  .cloudtag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .cloudtag.on{background:#e5f6ee;color:var(--green)} .cloudtag.off{background:#eef1f6;color:var(--muted)}
+  .regfilter{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 12px;box-shadow:var(--shadow)}
+  .regfilter span{font-size:12px;font-weight:700;color:var(--navy)}
+  .regfilter select{border:1px solid var(--line);border-radius:7px;padding:5px 9px;font-size:12.5px;font-family:inherit;color:var(--ink);background:#fff;font-weight:600}
+  .regfilter select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+  .regfilter select:disabled{color:var(--muted);background:#f6f8fb}
+  .slide-hd{background:linear-gradient(105deg,var(--navy) 0%,var(--navy2) 60%,var(--blue) 100%);color:#fff;border-radius:14px 14px 0 0;padding:20px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:3px solid var(--gold)}
+  .slide-hd h2{margin:0;font-size:20px;color:#fff;font-weight:800;letter-spacing:.2px}
+  .slide-hd .sub{margin:3px 0 0;font-size:12.5px;color:rgba(255,255,255,.75)}
+  .slide-hd .right{font-size:12.5px;color:rgba(255,255,255,.85);white-space:nowrap;font-weight:600}
+  .slide-body{background:var(--card);border:1px solid var(--line);border-top:none;border-radius:0 0 14px 14px;padding:24px;box-shadow:var(--shadow);margin-bottom:18px}
+  .dcards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  .dcard{background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .dcard .dch{font-size:13px;font-weight:800;color:var(--navy);margin:0 0 14px}
+  .drop{border:2px dashed #a9c3dd;border-radius:16px;padding:44px;text-align:center;background:#fafbfd;transition:.15s;cursor:pointer}
+  .drop.hot{border-color:var(--blue);background:var(--blue-l)}
+  .drop .big{font-size:46px;margin-bottom:12px}
+  .drop h3{margin:0 0 6px;font-size:18px;color:var(--navy)}
+  .drop p{margin:0;color:var(--muted);font-size:13px}
+  .upbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#eaf7f0;border:1px solid #bfe6cf;border-radius:11px;padding:12px 16px;margin-bottom:18px;font-size:13px}
+  .upbar .fn{font-weight:700;color:var(--navy)}
+  .err{background:#fdecec;border:1px solid #f2c9c9;color:#a12;border-radius:11px;padding:12px 16px;font-size:13px;margin-top:14px}
+  .donutwrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center;padding-top:6px}
+  .donut{width:150px;height:150px;border-radius:50%;position:relative;flex:none}
+  .donut::after{content:"";position:absolute;inset:26px;background:#fbfcfe;border-radius:50%}
+  .donut .dc{position:absolute;inset:0;display:grid;place-items:center;z-index:1;font-size:18px;font-weight:800;color:var(--navy)}
+  .dleg{font-size:12.5px}
+  .dleg div{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .dleg i{width:12px;height:12px;border-radius:3px}
+  .ctrl{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;border-top:3px solid var(--gold)}
+  .ctrl .cg{font-size:13.5px;font-weight:700;color:var(--navy);margin:0 0 6px}
+  .ctrl .ci{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.45}
+  .ctrl .cc{font-size:12.5px;color:var(--green);line-height:1.5;background:#eaf7f0;border-radius:8px;padding:8px 10px}
+  .ctrl .cc b{font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px}
+  .titlegrp{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;margin-bottom:12px}
+  .titlegrp h4{margin:0 0 10px;font-size:14px;color:var(--navy);display:flex;justify-content:space-between}
+  .titlegrp h4 b{color:var(--blue)}
+  .empty{background:var(--card);border:1px dashed #bcd4ea;border-radius:16px;padding:48px;text-align:center;color:var(--muted)}
+  footer{max-width:1200px;margin:10px auto 30px;padding:16px 26px 0;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  footer .dot-gold{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+  .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  @media(max-width:820px){
+    .home2,.rgrid,.dd,.dcards,.dv-cols,.rc-grid{grid-template-columns:1fr}.ddnav{position:static}.qform{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}
+  }
+  @media(max-width:560px){
+    .wrap{padding:16px 14px}
+    header.app{padding:10px 14px;gap:10px;flex-wrap:wrap}
+    .brand-logo{height:36px;max-width:120px}.brand-badge{width:40px;height:40px;font-size:16px}
+    .brand h1{font-size:15px}.brand p{display:none}.org-tag{font-size:10.5px;padding-left:10px}
+    .page-title{font-size:19px}.page-sub{font-size:12.5px}
+    .home2{gap:14px}.homecard{padding:22px;min-height:0}.homecard .hc-top{width:52px;height:52px;font-size:26px}.homecard h3{font-size:19px}
+    .kpis{grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:16px}.kpi{padding:12px}.kpi b{font-size:19px}.kpi span{font-size:10.5px}
+    .navcards{grid-template-columns:repeat(2,1fr);gap:9px}.navcard{padding:12px}.nc-ic{font-size:19px}.nc-label{font-size:12.5px}.nc-sub{display:none}
+    .grid{grid-template-columns:1fr}
+    .panel{padding:16px}.panel h2{font-size:17px}.intro{font-size:12.5px}
+    .slide-hd{flex-direction:column;align-items:flex-start;gap:6px;padding:16px}.slide-hd h2{font-size:16px}.slide-body{padding:16px}
+    .subtabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.stab{white-space:nowrap;flex:none}
+    .chart{height:110px}.xlab span{font-size:7.5px}
+    .hbar-row .lbl{width:92px;font-size:11px}.hbar-row .val{width:40px}
+    .conc-lbl{width:96px}.conc-cap{width:auto}
+    .tgrid{grid-template-columns:1fr}
+    .ddnav{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px}.ddnav h5{display:none}.ddnav .it{white-space:nowrap;flex:none}
+    table.tb,table.heat,table.lg{min-width:640px}
+    .qform{grid-template-columns:1fr}
+    footer{padding:14px 14px 0;flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {useState,useRef,useEffect} = React;
+const DB = window.AUDIT_DATA;
+const FY = DB.fyLabels;
+const CUT_2024 = new Date(2024,2,31);
+const ADMIN_SECRET = "liv-admin";
+async function apiGetATR(){ try{ const r=await fetch("/api/atr",{cache:"no-store"}); if(!r.ok) return null; const j=await r.json(); return (j&&j.aggregate)?j.aggregate:null; }catch(e){ return null; } }
+async function apiPostATR(agg){ try{ const r=await fetch("/api/atr",{method:"POST",headers:{"Content-Type":"application/json","x-admin-secret":ADMIN_SECRET},body:JSON.stringify({aggregate:agg,fileName:agg?agg.fileName:""})}); return r.ok; }catch(e){ return false; } }
+async function apiGetQueries(bu){ try{ const r=await fetch("/api/queries?bu="+encodeURIComponent(bu),{cache:"no-store"}); if(!r.ok) return null; return await r.json(); }catch(e){ return null; } }
+async function apiPostQuery(payload){ try{ const r=await fetch("/api/queries",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); return r.ok; }catch(e){ return false; } }
+async function apiGetLegacy(){ try{ const r=await fetch("/api/legacy",{cache:"no-store"}); if(!r.ok) return null; const j=await r.json(); return (j&&j.map)?j.map:{}; }catch(e){ return null; } }
+async function apiPostLegacy(map){ try{ const r=await fetch("/api/legacy",{method:"POST",headers:{"Content-Type":"application/json","x-admin-secret":ADMIN_SECRET},body:JSON.stringify({map})}); return r.ok; }catch(e){ return false; } }
+function BrandLogo({onClick}){
+  const [failed,setFailed]=useState(false);
+  if(failed) return <div className="brand-badge" onClick={onClick} title="BPCL">iL</div>;
+  return <img className="brand-logo" src="bpcl-logo.png" alt="BPCL" onClick={onClick} onError={()=>setFailed(true)} />;
+}
+function MiniBars({data, labels, tone}){
+  const max=Math.max(...data,1), peak=Math.max(...data);
+  return (<div><div className="chart">{data.map((v,i)=>(<div key={i} className={"bar "+(tone||"")+(v===peak&&v>0?" peak":"")} style={{height:(v/max*100)+"%"}} title={labels[i]+": "+v}>{v>0 && <span className="v">{v}</span>}</div>))}</div><div className="xlab">{labels.map((f,i)=><span key={i}>{f}</span>)}</div></div>);
+}
+function Bars({data, tone}){ return <MiniBars data={data} labels={FY} tone={tone}/>; }
+const ATR_KEY="iai_atr_data"; const LEG_KEY="iai_legacy_meta";
+function pickCol(headers, res){ return headers.find(h=> res.some(r=> r.test(h)) ); }
+function normPri(v){ if(v==null) return "Medium"; const s=String(v).trim().toLowerCase(); if(s.startsWith("h")||s.includes("high")) return "High"; if(s.startsWith("l")||s.includes("low")) return "Low"; return "Medium"; }
+function toDate(v){ if(v instanceof Date) return v; if(typeof v==="number"){ return new Date(Math.round((v-25569)*86400*1000)); } const d=new Date(v); return isNaN(d)?null:d; }
+function fmtDate(d){ if(!d) return ""; const p=n=>String(n).padStart(2,"0"); return p(d.getDate())+"-"+p(d.getMonth()+1)+"-"+d.getFullYear(); }
+function parseSheet(json){
+  if(!json.length) return [];
+  const headers=Object.keys(json[0]);
+  const cId=pickCol(headers,[/^id$/i,/\bid\b/i,/atr\s*id/i]);
+  const cEnt=pickCol(headers,[/sbu/i,/entity/i,/\bbu\b/i,/business/i,/location/i]);
+  const cPri=pickCol(headers,[/priorit/i,/\bpri\b/i]);
+  const cSta=pickCol(headers,[/status/i]);
+  const cTar=pickCol(headers,[/target/i,/due\s*date/i,/compliance\s*date/i]);
+  const cDays=pickCol(headers,[/overdue/i,/ageing/i,/aging/i,/days\s*past/i]);
+  const cCode=pickCol(headers,[/project/i,/\bcode\b/i,/audit\s*ref/i]);
+  const cRec=pickCol(headers,[/recommend/i,/observation/i,/particular/i]);
+  const cReg=pickCol(headers,[/^region$/i,/\bregion\b/i,/\bzone\b/i]);
+  if(!cEnt) throw new Error("Couldn't find an SBU/Entity column. Add a column named 'SBU / Entity'.");
+  const today=new Date(); today.setHours(0,0,0,0);
+  return json.map(r=>{
+    const pri=normPri(cPri?r[cPri]:null);
+    const status=cSta?(r[cSta]==null?"":String(r[cSta]).trim()):"";
+    let days=null, before2024=false, targetStr="";
+    if(cTar){ const d=toDate(r[cTar]); if(d){ d.setHours(0,0,0,0); days=Math.round((today-d)/86400000); before2024 = d < CUT_2024; targetStr=fmtDate(d); } }
+    if(days==null && cDays!=null && r[cDays]!=null){ const n=Number(r[cDays]); if(!isNaN(n)) days=n; }
+    if(days==null) days=0;
+    const region=cReg?String(r[cReg]||"").trim().toUpperCase():"";
+    let ent=String(r[cEnt]==null?"":r[cEnt]).trim(); if(!ent||ent.toLowerCase()==="null") ent="Unspecified";
+    const id=cId!=null && r[cId]!=null ? String(r[cId]).trim() : null;
+    let rec=cRec?String(r[cRec]||"").trim():""; if(rec.length>240) rec=rec.slice(0,237)+"…";
+    const code=cCode?String(r[cCode]||"").trim():"";
+    return { id, entity:ent, pri, status, days, overdue:days>0, before2024, region, code, rec, targetStr };
+  }).filter(r=>r.entity);
+}
+function parseWorkbook(arrbuf){
+  const wb=XLSX.read(arrbuf,{type:"array",cellDates:true});
+  const names=wb.SheetNames;
+  const curName = names.find(n=>/current/i.test(n)) || names[0];
+  const pastName = names.find(n=>/past|previous|prior|last/i.test(n));
+  const rows=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[curName],{defval:null}));
+  if(!rows.length) throw new Error("No usable rows found in the current sheet.");
+  const prev = pastName ? parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[pastName],{defval:null})) : null;
+  return { rows, prev };
+}
+function regionsOf(rows){ const set=new Set(rows.map(r=>r.region).filter(Boolean)); return Array.from(set).sort(); }
+function computeMetrics(rows, region, prev){
+  const isClosed=s=>/clos/i.test(s||"");
+  let open=rows.filter(r=>!isClosed(r.status));
+  if(region && region!=="ALL"){ open=open.filter(r=>r.region===region); }
+  const total=open.length;
+  const overdue=open.filter(r=>r.overdue).length;
+  const high=open.filter(r=>r.pri==="High").length;
+  const highOverdue=open.filter(r=>r.pri==="High" && r.overdue).length;
+  const beyond1=open.filter(r=>r.days>365).length;
+  const buckets=[ {label:"0-90 days", n:open.filter(r=>r.days>0 && r.days<=90).length}, {label:"90-180 days", n:open.filter(r=>r.days>90 && r.days<=180).length}, {label:"180-365 days", n:open.filter(r=>r.days>180 && r.days<=365).length}, {label:"Beyond 1 year", n:beyond1} ];
+  const pri={High:high, Medium:open.filter(r=>r.pri==="Medium").length, Low:open.filter(r=>r.pri==="Low").length};
+  const byEntMap={};
+  const ent=(k)=> byEntMap[k]=byEntMap[k]||{entity:k,total:0,H:0,M:0,L:0,overdue:0,sumOD:0,before2024:0,added:0,reduced:0};
+  open.forEach(r=>{ const e=ent(r.entity); e.total++; e[r.pri==="High"?"H":r.pri==="Low"?"L":"M"]++; if(r.overdue){e.overdue++; e.sumOD+=r.days;} if(r.before2024) e.before2024++; });
+  let hasCycle=false;
+  if(prev && prev.length){
+    hasCycle=true;
+    const prevOpen=prev.filter(r=>!isClosed(r.status));
+    const prevIds=new Set(prevOpen.map(r=>r.id).filter(x=>x!=null));
+    const curOpenIds=new Set(open.map(r=>r.id).filter(x=>x!=null));
+    open.forEach(r=>{ if(r.id!=null && !prevIds.has(r.id)) ent(r.entity).added++; });
+    prevOpen.forEach(r=>{ if(r.id!=null && !curOpenIds.has(r.id)){ if(region && region!=="ALL" && r.region!==region) return; ent(r.entity).reduced++; } });
+  }
+  const byEntity=Object.values(byEntMap).map(e=>({...e, avgOD: e.overdue? Math.round(e.sumOD/e.overdue):0})).sort((a,b)=>b.total-a.total);
+  const statusMap={}; open.forEach(r=>{ const s=r.status||"New"; statusMap[s]=(statusMap[s]||0)+1; });
+  const oldest=open.reduce((m,r)=> r.days>m?r.days:m, 0);
+  const concentrationGroups=byEntity.map(e=>({label:e.entity, overdue:e.overdue, total:e.total}));
+  return {total,overdue,high,highOverdue,beyond1,buckets,pri,byEntity,statusMap,oldest, projects:new Set(open.map(r=>r.code).filter(Boolean)).size, concentrationGroups, hasCycle, source: region && region!=="ALL" ? ("Region: "+region) : ""};
+}
+function buildAggregate(rows, prev, meta){
+  const regions=regionsOf(rows);
+  const byRegion={ ALL: computeMetrics(rows,"ALL",prev) };
+  regions.forEach(rg=> byRegion[rg]=computeMetrics(rows,rg,prev));
+  const isClosed=s=>/clos/i.test(s||"");
+  const legacyRows=rows.filter(r=>!isClosed(r.status) && r.before2024)
+    .map(r=>({id:r.id, code:r.code, entity:r.entity, region:r.region, rec:r.rec, targetStr:r.targetStr, days:r.days}))
+    .sort((a,b)=>b.days-a.days);
+  return { fileName:meta.fileName, uploadedAt:meta.uploadedAt, hasCycle: !!(prev&&prev.length), regions, byRegion, legacyRows, total: byRegion.ALL.total };
+}
+function Donut({pri}){
+  const total=pri.High+pri.Medium+pri.Low||1; const mP=pri.Medium/total, lP=pri.Low/total; const a1=mP*360, a2=(mP+lP)*360;
+  const style={background:`conic-gradient(var(--blue) 0 ${a1}deg, #9aa7b8 ${a1}deg ${a2}deg, var(--red) ${a2}deg 360deg)`};
+  const pct=x=>Math.round(x/total*100);
+  return (<div className="donutwrap"><div className="donut" style={style}><div className="dc">{pct(pri.Medium)}%</div></div><div className="dleg"><div><i style={{background:"var(--blue)"}}></i> Medium ({pri.Medium}) · {pct(pri.Medium)}%</div><div><i style={{background:"#9aa7b8"}}></i> Low ({pri.Low}) · {pct(pri.Low)}%</div><div><i style={{background:"var(--red)"}}></i> High ({pri.High}) · {pct(pri.High)}%</div></div></div>);
+}
+function ScoreCard({e, hasCycle}){
+  const [flip,setFlip]=useState(false);
+  const col = e.avgOD>500?"var(--red)":e.avgOD>=300?"var(--amber)":"var(--blue)";
+  const reduced=e.reduced||0, added=e.added||0, net=reduced-added;
+  const prevTotal=e.total+reduced-added;
+  const netCls = net>0?"pos":net<0?"neg":"zero";
+  const before=e.before2024||0;
+  return (
+    <div className={"flip"+(flip?" on":"")} onClick={()=>setFlip(!flip)}>
+      <div className="flip-inner">
+        <div className="flip-face sc-front">
+          <div className="sc-top" style={{background:col}}></div>
+          <h4>{e.entity} <b style={{color:col}}>{e.total}</b></h4>
+          <div className="sc-sub">open points · tap to compare</div>
+          <div className="sc-chips"><span className="chip h">H {e.H}</span><span className="chip m">M {e.M}</span><span className="chip l">L {e.L}</span></div>
+          <div className={"sc-legacy"+(before?"":" zero")}>{before} pt{before===1?"":"s"} · target before 31.03.2024</div>
+          <div className="sc-foot"><span>Avg overdue</span><b style={{color:col}}>{e.avgOD} days</b></div>
+        </div>
+        <div className="flip-face flip-back sc-back">
+          <div className="sc-top" style={{background:"var(--gold)"}}></div>
+          <h4>{e.entity}</h4>
+          <div className="sc-sub">improvement vs previous cycle</div>
+          {hasCycle ? <div>
+            <div className="cyc-row red"><span className="ci">{"\u25BC"}</span><div><b>{reduced}</b> resolved <span>· improvement</span></div></div>
+            <div className="cyc-row add"><span className="ci">{"\u25B2"}</span><div><b>{added}</b> newly added <span>· this cycle</span></div></div>
+            <div className={"cyc-net "+netCls}>{net>0?`Net improvement of ${net} points`:net<0?`Net increase of ${-net} points`:"No net change"} · was {prevTotal}, now {e.total}</div>
+          </div> : <div className="cyc-note">Upload an Excel with <b>Current</b> and <b>Past</b> sheets to see resolved vs newly-added points (matched by the Id column).</div>}
+          <div className="flip-hint">tap to flip back</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function LegacyBacklog({legacyRows, regionList}){
+  const [meta,setMeta]=useState({}); const [online,setOnline]=useState(false); const [loaded,setLoaded]=useState(false);
+  const [region,setRegion]=useState("ALL"); const [busy,setBusy]=useState(false); const [msg,setMsg]=useState(""); const inputRef=useRef();
+  useEffect(()=>{ let alive=true; (async()=>{ const m=await apiGetLegacy(); if(alive){ if(m){ setOnline(true); setMeta(m); } else { try{ setMeta(JSON.parse(localStorage.getItem(LEG_KEY))||{}); }catch(e){} } setLoaded(true); } })(); return ()=>{alive=false;}; },[]);
+  const rows = (legacyRows||[]).filter(r=> region==="ALL" || (r.region||"").toUpperCase()===region);
+  const setField=(id,k,v)=>{ setMeta(m=>{ const n={...m, [id]:{...(m[id]||{}), [k]:v}}; return n; }); };
+  const save=async()=>{ setBusy(true); setMsg(""); try{ localStorage.setItem(LEG_KEY, JSON.stringify(meta)); }catch(e){} const ok=await apiPostLegacy(meta); setBusy(false); setMsg(ok?"Saved to Azure Cosmos DB ✓":"Saved on this device ✓"); setTimeout(()=>setMsg(""),4000); };
+  const onBulk=(file)=>{ if(!file)return; setMsg(""); const reader=new FileReader();
+    reader.onload=e=>{ try{
+      const wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      const j=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+      if(!j.length){ setMsg("The file has no rows."); return; }
+      const h=Object.keys(j[0]);
+      const cId=pickCol(h,[/^id$/i,/\bid\b/i]); const cDt=pickCol(h,[/tentative/i,/date/i]); const cRm=pickCol(h,[/remark/i,/comment/i,/note/i]);
+      if(!cId){ setMsg("Couldn't find an 'Id' column."); return; }
+      let n=0; const next={...meta};
+      j.forEach(r=>{ const id=r[cId]!=null?String(r[cId]).trim():null; if(!id) return; const cur={...(next[id]||{})};
+        if(cDt && r[cDt]!=null){ const d=toDate(r[cDt]); cur.tentative = d? (d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")) : String(r[cDt]).trim(); }
+        if(cRm && r[cRm]!=null){ cur.remarks = String(r[cRm]).trim(); }
+        next[id]=cur; n++; });
+      setMeta(next); setMsg(`Merged ${n} row(s). Click Save to store centrally.`);
+    }catch(ex){ setMsg("Could not read this file."); } };
+    reader.readAsArrayBuffer(file); };
+  const download=()=>{
+    const data=rows.map(r=>{ const m=meta[r.id]||{}; let td=m.tentative||""; if(/^\d{4}-\d{2}-\d{2}$/.test(td)){ const p=td.split("-"); td=p[2]+"-"+p[1]+"-"+p[0]; }
+      return { "Report / Code": r.code||"", "ID": r.id||"", "SBU / Entity": r.entity||"", "Region": r.region||"", "Recommendation": r.rec||"", "Target Date": r.targetStr||"", "Days Overdue": r.days, "Tentative Date": td, "Remarks": m.remarks||"" }; });
+    const ws=XLSX.utils.json_to_sheet(data, {header:["Report / Code","ID","SBU / Entity","Region","Recommendation","Target Date","Days Overdue","Tentative Date","Remarks"]});
+    ws["!cols"]=[{wch:22},{wch:8},{wch:22},{wch:8},{wch:48},{wch:13},{wch:12},{wch:14},{wch:40}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Legacy Backlog");
+    const stamp=new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, "Legacy_Backlog_"+(region==="ALL"?"All":region)+"_"+stamp+".xlsx");
+  };
+  const filled = rows.filter(r=> meta[r.id] && (meta[r.id].tentative||meta[r.id].remarks)).length;
+  return (
+    <div>
+      <div className="slide-hd"><div><h2>Legacy Backlog — Target Before 31.03.2024</h2><p className="sub">Open points whose target date is prior to 31.03.2024 · auditees add a tentative closure date and remarks</p></div><div className="right">{rows.length} points · {filled} updated</div></div>
+      <div className="slide-body">
+        <div className="lg-toolbar">
+          <div className="regfilter"><span>🗺️ Region</span><select value={region} onChange={e=>setRegion(e.target.value)} disabled={!regionList||!regionList.length}><option value="ALL">All regions</option>{(regionList||[]).map(r=><option key={r} value={r}>{r}</option>)}</select></div>
+          <span className={"cloudtag "+(online?"on":"off")}>{online?"● Azure Cosmos DB":"local"}</span>
+          <div className="grow"></div>
+          <button className="qbtn ghost sm" onClick={download} disabled={!rows.length}>⬇ Download list (Excel)</button>
+          <button className="qbtn ghost sm" onClick={()=>inputRef.current.click()}>⬆ Bulk upload (Id · Date · Remarks)</button>
+          <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>onBulk(e.target.files[0])}/>
+          <button className="qbtn sm" onClick={save}>{busy?"Saving…":"Save changes"}</button>
+        </div>
+        {!loaded ? <div className="empty">Loading…</div> : rows.length===0 ? <div className="empty">No pre-31.03.2024 points for this selection. Upload the tracker in <b>ATR Status → Update data</b> to populate this list.</div> :
+        <div className="lg-scroll"><table className="lg">
+          <thead><tr><th>Report / Code</th><th>ID</th><th>SBU / Entity</th><th>Region</th><th>Recommendation</th><th>Target date</th><th style={{width:150}}>Tentative date</th><th style={{width:220}}>Remarks</th></tr></thead>
+          <tbody>{rows.map((r,i)=>{ const m=meta[r.id]||{}; return (
+            <tr key={i}>
+              <td style={{fontWeight:700,color:"var(--navy)",whiteSpace:"nowrap"}}>{r.code||"—"}</td>
+              <td style={{whiteSpace:"nowrap"}}>{r.id||"—"}</td>
+              <td style={{whiteSpace:"nowrap"}}>{r.entity}</td>
+              <td>{r.region||"—"}</td>
+              <td style={{minWidth:220}}>{r.rec||"—"}</td>
+              <td style={{whiteSpace:"nowrap"}}>{r.targetStr||"—"} <div className="lg-days" style={{fontSize:10.5}}>{r.days}d overdue</div></td>
+              <td><input type="date" className="lg-date" value={m.tentative||""} onChange={e=>setField(r.id,"tentative",e.target.value)}/></td>
+              <td><input type="text" placeholder="Auditee remarks…" value={m.remarks||""} onChange={e=>setField(r.id,"remarks",e.target.value)}/></td>
+            </tr>);})}</tbody>
+        </table></div>}
+        {msg && <div className="savebar"><span>✅</span><span>{msg}</span></div>}
+        <p className="intro" style={{marginTop:14,marginBottom:0}}>Use <b>Download list</b> to export this table (with tentative dates &amp; remarks) to Excel. Bulk upload accepts a simple sheet with three columns — <b>Id</b>, <b>Tentative Date</b>, <b>Remarks</b> — matched by <b>Id</b>. Use the <b>Tentative_Date_Upload_Template.xlsx</b> as a ready format.</p>
+      </div>
+    </div>
+  );
+}
+function ATRDash({agg}){
+  const [view,setView]=useState("snap");
+  const [region,setRegion]=useState("ALL");
+  const m = agg ? (agg.byRegion[region]||agg.byRegion.ALL) : DB.atrDefault;
+  const regionList = agg ? agg.regions : [];
+  const legacyRows = agg ? agg.legacyRows : (DB.atrDefault.legacyRows||[]);
+  const legacyRegions = agg ? agg.regions : Array.from(new Set((DB.atrDefault.legacyRows||[]).map(r=>(r.region||"").toUpperCase()).filter(Boolean))).sort();
+  const entDesc=[...m.byEntity].sort((a,b)=>b.total-a.total);
+  const maxEnt=Math.max(...m.byEntity.map(e=>e.total),1);
+  const maxBkt=Math.max(...m.buckets.map(b=>b.n),1);
+  const pctOf=(n)=>m.total?Math.round(n/m.total*100):0;
+  const VIEWS=[{id:"snap",label:"Executive Snapshot"},{id:"score",label:"SBU / Entity Scorecard"},{id:"conc",label:"Concentration & Accountability"},{id:"legacy",label:"Legacy Backlog"}];
+  const concGroups=m.concentrationGroups||[];
+  const narrative=m.ageingNarrative||[ `${m.beyond1} points are older than one year.`, `${m.overdue} points overdue in total (${pctOf(m.overdue)}% of the portfolio).`, m.oldestLabel? `Oldest point dates back to ${m.oldestLabel}.` : `Oldest open point is ${m.oldest} days past target.` ];
+  const bktColors=["#1a9f6b","#0072bc","#e08a00","#c23b3b"]; const tag=m.source?(m.source+" · "):"";
+  const showRegion = view!=="legacy";
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div className="subtabs" style={{marginTop:4,marginBottom:0}}>{VIEWS.map(v=><button key={v.id} className={"stab"+(view===v.id?" on":"")} onClick={()=>setView(v.id)}>{v.label}</button>)}</div>
+        {showRegion && <div className="regfilter" style={{marginBottom:14}}><span>🗺️ Region</span><select value={region} onChange={e=>setRegion(e.target.value)} disabled={!regionList.length}><option value="ALL">All regions</option>{regionList.map(r=><option key={r} value={r}>{r}</option>)}</select></div>}
+      </div>
+      {view==="snap" && <div>
+        <div className="slide-hd"><div><h2>Audit Open Points — Executive Snapshot</h2><p className="sub">Status of all outstanding recommendations across SBUs and entities</p></div><div className="right">{tag}{m.total} open points</div></div>
+        <div className="slide-body">
+          <div className="kpis" style={{marginBottom:22}}>
+            <div className="kpi"><div className="k-top"></div><b>{m.total}</b><span>Total open points<br/>Across {m.projects||"—"} audit projects</span></div>
+            <div className="kpi warn"><div className="k-top"></div><b>{m.overdue}</b><span>Overdue<br/>{pctOf(m.overdue)}% of all open points</span></div>
+            <div className="kpi hi"><div className="k-top"></div><b>{m.high}</b><span>High priority<br/>{m.highOverdue} already past target date</span></div>
+            <div className="kpi ok"><div className="k-top"></div><b>{m.beyond1}</b><span>Ageing beyond one year<br/>{pctOf(m.beyond1)}% of the portfolio</span></div>
+          </div>
+          <div className="dcards">
+            <div className="dcard"><p className="dch">Open points by SBU / entity <span style={{fontWeight:400,color:"var(--muted)",fontSize:10.5}}>· {entDesc.length} entities</span></p><div className="entlist">{entDesc.map((e,i)=>(<div className="hbar-row cmp" key={i}><span className="lbl" title={e.entity}>{e.entity}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(e.total/maxEnt*100)+"%"}}></div></div><span className="val">{e.total}</span></div>))}</div></div>
+            <div className="dcard"><p className="dch">Ageing against target date</p>{m.buckets.map((b,i)=>(<div className="hbar-row" key={i} style={{marginBottom:16}}><span className="lbl">{b.label}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(b.n/maxBkt*100)+"%",background:bktColors[i]}}></div></div><span className="val">{b.n}</span></div>))}</div>
+            <div className="dcard"><p className="dch">Priority mix</p><Donut pri={m.pri}/></div>
+          </div>
+        </div>
+      </div>}
+      {view==="score" && <div>
+        <div className="slide-hd"><div><h2>SBU / Entity Scorecard — Priority &amp; Ageing</h2><p className="sub">Each card shows the pre-31.03.2024 backlog on its face · tap to flip for cycle improvement</p></div><div className="right">{tag}{m.total} open points</div></div>
+        <div className="slide-body"><div className="scgrid">{entDesc.map((e,i)=>(<ScoreCard key={i} e={e} hasCycle={!!m.hasCycle}/>))}</div></div>
+      </div>}
+      {view==="conc" && <div>
+        <div className="slide-hd"><div><h2>Concentration &amp; Accountability</h2><p className="sub">Each entity's overdue load as a share of its own open points</p></div><div className="right">{tag}{m.total} open points</div></div>
+        <div className="slide-body">
+          <div className="sec-h" style={{marginTop:0}}>Overdue share by entity <span className="ln"></span><span style={{fontSize:11}}><i style={{display:"inline-block",width:11,height:11,background:"var(--red)",borderRadius:3,marginRight:4,verticalAlign:-1}}></i>Overdue&nbsp;&nbsp;<i style={{display:"inline-block",width:11,height:11,background:"#dbe6f2",borderRadius:3,margin:"0 4px 0 8px",verticalAlign:-1}}></i>Within target · bar length = share of that entity's own load</span></div>
+          <div style={{maxHeight:420,overflowY:concGroups.length>12?"auto":"visible",paddingRight:concGroups.length>12?6:0}}>{concGroups.map((g,i)=>{ const pct=g.total?Math.round(g.overdue/g.total*100):0; return (<div className="conc-row" key={i}><span className="conc-lbl" title={g.label}>{g.label}</span><div className="conc-track"><div className="conc-fill" style={{width:pct+"%"}}>{pct>=18 && <span>{pct}%</span>}</div></div><span className="conc-cap"><b>{g.overdue}</b> of {g.total} · {pct}% overdue</span></div>); })}</div>
+          <div className="rgrid" style={{marginTop:20}}>
+            <div className="box take" style={{marginTop:0}}><b>Where the ageing sits</b><ul style={{margin:"4px 0 0 0",paddingLeft:18,lineHeight:1.7}}>{narrative.map((t,i)=><li key={i}>{t}</li>)}</ul></div>
+            <div><div className="sec-h" style={{marginTop:0}}>Status of open points <span className="ln"></span></div>{Object.entries(m.statusMap).map(([s,n],i)=>(<div className="hbar-row" key={i}><span className="lbl">{s}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(n/m.total*100)+"%",background:/proc/i.test(s)?"linear-gradient(90deg,#37b98a,#1a9f6b)":undefined}}></div></div><span className="val">{n} ({pctOf(n)}%)</span></div>))}</div>
+          </div>
+        </div>
+      </div>}
+      {view==="legacy" && <LegacyBacklog legacyRows={legacyRows} regionList={legacyRegions}/>}
+    </div>
+  );
+}
+function AdminUpload({onUploaded, onReset, hasData}){
+  const [hot,setHot]=useState(false); const [err,setErr]=useState(""); const [ok,setOk]=useState(""); const [busy,setBusy]=useState(false); const inputRef=useRef();
+  const handle=(file)=>{ setErr(""); setOk(""); if(!file) return; setBusy(true); const reader=new FileReader();
+    reader.onload=async e=>{ try{
+        const {rows,prev}=parseWorkbook(e.target.result);
+        if(!rows.length) throw new Error("No usable rows found.");
+        const agg=buildAggregate(rows,prev,{fileName:file.name,uploadedAt:new Date().toLocaleString()});
+        try{ localStorage.setItem(ATR_KEY, JSON.stringify({aggregate:agg})); }catch(_){}
+        const cloud=await apiPostATR(agg);
+        setOk(`Loaded "${file.name}" · ${rows.length} current rows`+(prev?` and ${prev.length} past rows (cycle comparison on)`:``)+(cloud?` · saved to Azure Cosmos DB`:` · saved on this device`)+`.`);
+        setBusy(false); onUploaded(agg);
+      }catch(ex){ setErr(ex.message||"Could not read this file."); setBusy(false); } };
+    reader.onerror=()=>{setErr("Could not read this file.");setBusy(false);}; reader.readAsArrayBuffer(file); };
+  return (<div className="panel"><h2>Update ATR Data</h2><p className="intro">Upload the audit open-points tracker (Excel / CSV). Put the latest data on a sheet named <b>Current</b> and (optionally) the previous cycle on a sheet named <b>Past</b> — the scorecard then shows resolved vs newly-added points, matched by the <b>Id</b> column. The file is saved to Azure Cosmos DB so everyone sees the same dashboard.</p>
+    <div className={"drop"+(hot?" hot":"")} onClick={()=>inputRef.current.click()} onDragOver={e=>{e.preventDefault();setHot(true);}} onDragLeave={()=>setHot(false)} onDrop={e=>{e.preventDefault();setHot(false);handle(e.dataTransfer.files[0]);}}>
+      <div className="big">{busy?"⏳":"📊"}</div><h3>{busy?"Reading & saving…":"Drag & drop your Excel here"}</h3><p>or click to browse · .xlsx, .xls or .csv</p>
+      <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>handle(e.target.files[0])}/></div>
+    {err && <div className="err">⚠️ {err}</div>}{ok && <div className="upbar" style={{marginTop:14}}><span>✅</span><span>{ok}</span></div>}
+    <div style={{display:"flex",gap:10,marginTop:16}}>{hasData && <button className="qbtn ghost" onClick={onReset}>Revert to default</button>}</div>
+    <div className="sec-h">Expected columns <span className="ln"></span></div>
+    <p className="intro" style={{margin:0}}><b>Id</b> (matches cycles) · <b>SBU / Entity</b> (required) · <b>Priority</b> · <b>Status</b> · <b>Target Date</b> (drives overdue, ageing &amp; the pre-31.03.2024 list) · optional <b>Project Code</b>, <b>Recommendation</b>, <b>region</b>. Column names are auto-detected.</p></div>);
+}
+function ATRStatus({onBack}){
+  const [agg,setAgg]=useState(null); const [loaded,setLoaded]=useState(false); const [cloud,setCloud]=useState(false);
+  const [mode,setMode]=useState("dash"); const [authed,setAuthed]=useState(false);
+  useEffect(()=>{ let alive=true; (async()=>{
+    let a=await apiGetATR(); let fromCloud=!!a;
+    if(!a){ try{ const s=JSON.parse(localStorage.getItem(ATR_KEY)); if(s&&s.aggregate) a=s.aggregate; }catch(e){} }
+    if(alive){ setAgg(a); setCloud(fromCloud); setLoaded(true); }
+  })(); return ()=>{alive=false;}; },[]);
+  const openAdmin=()=>{ if(authed){ setMode("admin"); return; } const pin=prompt("Enter PIN to update the ATR data:"); if(pin==="2468"){ setAuthed(true); setMode("admin"); } else if(pin!=null){ alert("Incorrect PIN."); } };
+  const onUploaded=(a)=>{ setAgg(a); setMode("dash"); apiGetATR().then(x=>{ if(x) setCloud(true); }); };
+  const reset=async()=>{ localStorage.removeItem(ATR_KEY); await apiPostATR(null); setAgg(null); setMode("dash"); };
+  return (<div className="wrap">
+    <div className="crumbs"><button onClick={onBack}>Home</button><span className="sep">/</span><b>ATR Status</b>{loaded && <span className={"cloudtag "+(cloud?"on":"off")} style={{marginLeft:8}}>{cloud?"● Azure Cosmos DB":"local data"}</span>}{agg && <span style={{marginLeft:8,fontSize:11,color:"var(--muted)"}}>· {agg.fileName}</span>}</div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:12,flexWrap:"wrap"}}>
+      <div className="page-title" style={{margin:0}}>Audit Open Points — ATR Status</div>
+      <div>{mode==="dash" ? <button className="qbtn ghost" style={{fontSize:12,padding:"7px 14px"}} onClick={openAdmin}>Update data</button> : <button className="qbtn ghost" style={{fontSize:12,padding:"7px 14px"}} onClick={()=>setMode("dash")}>← Back to dashboard</button>}</div>
+    </div>
+    {!loaded ? <div className="empty">Loading…</div> : (mode==="dash" ? <ATRDash agg={agg}/> : <AdminUpload onUploaded={onUploaded} onReset={reset} hasData={!!agg}/>)}
+  </div>);
+}
+function Queries({bu, themeOptions}){
+  const KEY="iai_queries_"+bu.id;
+  const localLoad=()=>{ try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return [];} };
+  const localSave=(x)=>{ try{localStorage.setItem(KEY,JSON.stringify(x));}catch(e){} };
+  const [items,setItems]=useState([]); const [online,setOnline]=useState(false); const [loaded,setLoaded]=useState(false);
+  const [admin,setAdmin]=useState(false); const [drafts,setDrafts]=useState({});
+  const opts=themeOptions||["General"];
+  const [form,setForm]=useState({raisedBy:"",entity:bu.entities?bu.entities[0]:"HQ",theme:opts[0],text:""});
+  useEffect(()=>{ let alive=true; (async()=>{ const r=await apiGetQueries(bu.id); if(alive){ if(r){ setOnline(true); setItems(r); } else { setItems(localLoad()); } setLoaded(true); } })(); return ()=>{alive=false;}; },[bu.id]);
+  const refresh=async()=>{ const r=await apiGetQueries(bu.id); if(r) setItems(r); };
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const submit=async()=>{ if(!form.raisedBy.trim()||!form.text.trim())return;
+    if(online){ await apiPostQuery({bu:bu.id,raisedBy:form.raisedBy,entity:form.entity,theme:form.theme,text:form.text}); await refresh(); }
+    else { const q={id:String(Date.now()),bu:bu.id,...form,date:new Date().toISOString().slice(0,10),status:"open",answer:""}; const nx=[q,...items]; setItems(nx); localSave(nx); }
+    setForm({raisedBy:"",entity:form.entity,theme:form.theme,text:""}); };
+  const enterAdmin=()=>{ if(admin){setAdmin(false);return;} const pin=prompt("Enter reviewer PIN to reply to queries:"); if(pin==="2468"){setAdmin(true);} else if(pin!=null){alert("Incorrect PIN.");} };
+  const setDraft=(id,v)=>setDrafts(d=>({...d,[id]:v}));
+  const postReply=async(q)=>{ const txt=(drafts[q.id]??q.answer??"").trim(); if(!txt)return;
+    if(online){ await apiPostQuery({id:q.id,bu:bu.id,answer:txt}); await refresh(); }
+    else { const nx=items.map(x=> x.id===q.id ? {...x, answer:txt, status:"answered", answeredAt:new Date().toISOString().slice(0,10)} : x); setItems(nx); localSave(nx); }
+    setDrafts(d=>{const n={...d}; delete n[q.id]; return n;}); };
+  const openCount=items.filter(q=>q.status!=="answered").length;
+  return (<div className="panel">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+      <div><h2>Queries to Audit Team</h2><p className="intro" style={{marginBottom:0}}>Raise a query to the Internal Audit team on any observation, recommendation or process point. The audit team replies against each query.</p></div>
+      <div style={{display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap"}}><span className={"cloudtag "+(online?"on":"off")}>{online?"● Azure Cosmos DB":"local"}</span>{admin && <span className="revbadge">● Reviewer</span>}<button className="qbtn ghost sm" onClick={enterAdmin}>{admin?"Exit reviewer":"Reviewer sign-in"}</button></div>
+    </div>
+    <div className="qform" style={{marginTop:16}}>
+      <div className="qfield"><label>Raised by</label><input value={form.raisedBy} placeholder="Name / role" onChange={e=>set("raisedBy",e.target.value)}/></div>
+      <div className="qfield"><label>Entity / Region</label><select value={form.entity} onChange={e=>set("entity",e.target.value)}>{(bu.entities||["HQ"]).map(x=><option key={x}>{x}</option>)}</select></div>
+      <div className="qfield full"><label>Related theme / subject</label><select value={form.theme} onChange={e=>set("theme",e.target.value)}>{opts.map(x=><option key={x}>{x}</option>)}<option>Other / general</option></select></div>
+      <div className="qfield full"><label>Your query</label><textarea value={form.text} placeholder="Type your query to the audit team…" onChange={e=>set("text",e.target.value)}/></div>
+      <div className="full" style={{display:"flex",gap:10}}><button className="qbtn" onClick={submit}>Raise query</button></div>
+    </div>
+    <div className="sec-h">Raised queries {items.length>0 && <span style={{fontSize:11,color:"var(--muted)"}}>· {openCount} open · {items.length-openCount} answered</span>}<span className="ln"></span></div>
+    {!loaded ? <div className="qempty">Loading…</div> : items.length===0 ? <div className="qempty">No queries raised yet. Use the form above to raise the first one.</div>
+      : items.map(q=>(
+        <div key={q.id} className={"qcard"+(q.status==="answered"?" answered":"")}>
+          <div className="qh"><div><div className="qsub">{q.theme}</div><div className="qmeta">{q.raisedBy} · {q.entity} · {q.date}</div></div><span className={"qstatus "+q.status}>{q.status==="answered"?"Answered":"Open"}</span></div>
+          <p className="qtext">{q.text}</p>
+          {q.answer && <div className="qans"><b>Audit team response{q.answeredAt?" · "+q.answeredAt:""}</b>{q.answer}</div>}
+          {admin && <div className="qreply">
+            <textarea placeholder="Write the audit team's reply…" value={drafts[q.id] ?? q.answer ?? ""} onChange={e=>setDraft(q.id,e.target.value)}/>
+            <div style={{display:"flex",gap:8,marginTop:8}}><button className="qbtn sm" onClick={()=>postReply(q)}>{q.status==="answered"?"Update reply":"Post reply"}</button></div>
+          </div>}
+        </div>))}
+  </div>);
+}
+function RecurringThemes({bu}){
+  const R=bu.recurringThemes;
+  const SUBS=[{id:"imp",label:"Improving",cls:"imp",tone:"imp",items:R.improving},{id:"flat",label:"Flat",cls:"flat",tone:"",items:R.flat},{id:"eff",label:"Efforts Required",cls:"eff",tone:"eff",items:R.efforts}];
+  const [sub,setSub]=useState("imp"); const cur=SUBS.find(s=>s.id===sub); const dc={imp:"var(--green)",flat:"var(--muted)",eff:"var(--red)"};
+  return (<div className="panel"><h2>Recurring Themes</h2><p className="intro">{R.note}</p>
+    <div className="subtabs">{SUBS.map(s=>(<button key={s.id} className={"stab "+s.cls+(sub===s.id?" on":"")} onClick={()=>setSub(s.id)}><span className="sdot" style={{background:dc[s.id]}}></span>{s.label}<span className="sc">{s.items.length}</span></button>))}</div>
+    <div className="tgrid">{cur.items.map((t,i)=>(<div className="tcard" key={i}><p className="tt">{t.title}</p><p className={"tg "+cur.cls}>{t.tag}</p><p className="ts">{t.sub}</p><Bars data={t.yearly} tone={cur.tone}/></div>))}</div>
+    <div className="box take"><b>What this means</b>{R.takeaway}</div></div>);
+}
+function Repetitive({bu, goDeep}){
+  const O=bu.repetitiveObs; const cell=(n,type)=> n===0? <span className="chip z">0</span> : <span className={"chip "+type}>{n}</span>;
+  return (<div className="panel"><h2>Repetitive Observations — High-Risk Focus</h2><p className="intro">{O.intro}</p>
+    <div className="tscroll"><table className="tb"><thead><tr><th>Chronic control theme</th><th className="n">Points raised</th><th className="n">High priority</th><th className="n">Still open</th><th className="n">Open &amp; high</th></tr></thead>
+      <tbody>{O.rows.map((r,i)=>(<tr key={i}><td>{r.deepId? <span className="lnk" onClick={()=>goDeep(r.deepId)}>{r.theme}</span> : r.theme}</td><td className="n">{r.raised}</td><td className="n">{cell(r.high,"h")}</td><td className="n">{cell(r.open,"o")}</td><td className="n">{cell(r.openHigh,"h")}</td></tr>))}
+        <tr className="tot"><td>{O.total.theme}</td><td className="n">{O.total.raised}</td><td className="n">{O.total.high}</td><td className="n">{O.total.open}</td><td className="n">{O.total.openHigh}</td></tr></tbody></table></div>
+    <div className="box take"><b>Key takeaway</b>{O.takeaway}</div></div>);
+}
+function DeepDive({bu, initial}){
+  const list=bu.deepDives;
+  const [sel,setSel]=useState(initial && list.find(d=>d.id===initial)?initial:list[0].id);
+  const showThemes=sel==="__themes"; const cur=list.find(d=>d.id===sel);
+  const navlabel=t=> t.indexOf(":")>=0 ? t.split(":")[0] : t;
+  return (<div className="dd">
+    <div className="ddnav">
+      <h5>Deep dives</h5>
+      {list.map(d=>(<div key={d.id} className={"it"+(d.id===sel?" on":"")} onClick={()=>setSel(d.id)}><span className="dot"></span><span>{navlabel(d.title)}</span></div>))}
+      <h5>Systemic</h5>
+      <div className={"it"+(showThemes?" on":"")} onClick={()=>setSel("__themes")}><span className="dot"></span><span>Root-cause themes</span></div>
+    </div>
+    <div>{showThemes ?
+      <div className="panel dv"><h2>Root-Cause Themes</h2><div className="rc-grid">{bu.rootCauseThemes.map((t,i)=><div className="rc" key={i}><b>{t.title}</b><span>{t.desc}</span></div>)}</div></div>
+      :
+      <div className="panel dv">
+        <h2>{cur.title}</h2>
+        <p className="dv-sub">{cur.sub}</p>
+        <div className="dv-stats">{cur.stats.map((s,i)=><div className="s" key={i}><b>{s.v}</b><span>{s.l}</span></div>)}</div>
+        <div className="dv-cols">
+          <div>
+            <div className="dv-h">Points raised by audit plan year</div>
+            <Bars data={cur.yearly}/>
+          </div>
+          <div>
+            <div className="dv-h">What the observations actually say</div>
+            <ul className="obs">{cur.observations.map((o,i)=><li key={i}><span>{o.label}</span>{o.n?<span className="cnt">{o.n}</span>:null}</li>)}</ul>
+          </div>
+        </div>
+        <div className="box why"><b>{cur.issueLabel}</b>{cur.issueText}</div>
+      </div>
+    }</div>
+  </div>);
+}
+function Regions({bu}){
+  const R=bu.regionStats; const maxDays=Math.max(...R.avgDaysOverdue.map(x=>x.days)); const maxOpen=Math.max(...R.openByRegion.map(x=>x.open));
+  return (<div className="panel"><h2>Region-wise Stats</h2><p className="intro">Where the backlog sits, how overdue it is, and how risk concentrates by ageing.</p>
+    <div className="rgrid"><div><div className="sec-h">Average days overdue by region <span className="ln"></span></div>{R.avgDaysOverdue.map((r,i)=>(<div className="hbar-row" key={i}><span className="lbl">{r.region}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(r.days/maxDays*100)+"%"}}></div></div><span className="val">{r.days}</span></div>))}</div>
+      <div><div className="sec-h">Open points by region <span className="ln"></span></div>{R.openByRegion.map((r,i)=>(<div className="hbar-row" key={i}><span className="lbl">{r.region}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(r.open/maxOpen*100)+"%"}}></div></div><span className="val">{r.open}</span></div>))}</div></div>
+    <div className="box take"><b>Key takeaway</b>{R.openTakeaway}</div>
+    <div className="sec-h">Risk &amp; ageing heat-map of open ATRs <span className="ln"></span></div>
+    <div className="tscroll"><table className="heat"><thead><tr><th>Priority ↓ / Age →</th>{R.heatMap.ages.map((a,i)=><th key={i}>{a}</th>)}</tr></thead><tbody>{R.heatMap.rows.map((row,i)=>(<tr key={i}><td className="pri">{row.pri}</td>{row.vals.map((v,j)=>{ const bg=v===0?"#fff":`rgba(210,69,63,${Math.min(0.12+v/95*0.7,0.85)})`; const col=v>40?"#fff":"var(--ink)"; return <td key={j} style={{background:bg,color:col,fontWeight:v?700:400}}>{v}</td>; })}</tr>))}</tbody></table></div>
+    <div className="bands">{R.heatMap.bands.map((b,i)=><div className={"band "+b.name[0].toLowerCase()} key={i}>{b.name}<span>{b.n}</span></div>)}</div>
+    <p className="intro" style={{marginTop:12}}>{R.heatMap.note}</p></div>);
+}
+function AuditInputs({bu}){
+  const A=bu.auditInputs;
+  return (<div className="panel"><h2>Inputs from Audit Team — Enablement to Stop Recurrence</h2><p className="intro">{A.intro}</p>
+    <div className="tscroll"><table className="tb"><thead><tr><th>Chronic theme</th><th>Points raised / open</th><th>Why it recurs</th><th>Internal Audit enablement</th></tr></thead><tbody>{A.rows.map((r,i)=>(<tr key={i}><td style={{fontWeight:700,color:"var(--navy)"}}>{r.theme}</td><td style={{whiteSpace:"nowrap"}}>{r.raisedOpen}</td><td>{r.why}</td><td>{r.enable}</td></tr>))}</tbody></table></div>
+    <div className="sec-h">Critical ATRs still open <span className="ln"></span></div>
+    <div className="tscroll"><table className="tb"><thead><tr><th>Audit code</th><th>Recommendation</th><th>Region</th><th>Age / Due</th><th className="n">Pri</th></tr></thead><tbody>{bu.criticalAtrs.map((a,i)=>(<tr key={i}><td style={{fontWeight:700,whiteSpace:"nowrap"}}>{a.code}</td><td>{a.rec}</td><td style={{whiteSpace:"nowrap",fontWeight:600,color:"var(--navy)"}}>{a.region}</td><td style={{whiteSpace:"nowrap"}}>{a.age}</td><td className="n"><span className="chip h">{a.pri}</span></td></tr>))}</tbody></table></div></div>);
+}
+function RetailIssueTypes({bu}){
+  const labels=bu.issueTrendLabels;
+  return (<div className="panel"><h2>Recurring Issue Types</h2>
+    <p className="intro">Retail SBU open ATRs grouped by issue type — the ten most recurring types cover 1,130 of 1,159 pending items (97%). Bars show pending ATRs by target-date financial year; % = share of all pending Retail ATRs.</p>
+    <div className="tgrid">{bu.issueTypes.map((t,i)=>(
+      <div className="icard" key={i}><span className="ipct">{t.pct}%</span><div className="itop"><h4>{t.name}</h4><div className="isub">{t.open} open ATRs</div></div>
+        <div className="hml"><span className="chip h">H {t.H}</span><span className="chip m">M {t.M}</span><span className="chip l">L {t.L}</span></div>
+        <MiniBars data={t.trend} labels={labels} tone="eff"/>
+        <div className="sec-h" style={{margin:"14px 0 6px",fontSize:10}}>Regional spread <span className="ln"></span></div>
+        <div className="spread">{Object.entries(t.spread).map(([k,v])=>(<div className="sp" key={k}><b>{v}</b><span>{k}</span></div>))}</div>
+        <div className="itop-terr"><b style={{color:"var(--navy)"}}>Top:</b> {t.top}</div></div>))}</div>
+    <div className="box take"><b>Key takeaway</b>{bu.issuesTakeaway}</div></div>);
+}
+function RetailTrends({bu}){
+  const H=bu.history;
+  return (<div className="panel"><h2>Issue Type Trends 2020-26</h2><p className="intro">Analysis of past Retail audit observations by issue type across six audit plan years — 7,786 observations over 300 audits. Change compares 2020-21 with 2025-26.</p>
+    <div className="tgrid">{H.types.map((t,i)=>{ const up=t.chg.indexOf("\u25BC")===-1; return (<div className="tcard" key={i}><p className="tt">{t.name}</p><p className={"tg "+(up?"up":"imp")}>{t.chg}</p><p className="ts">{t.pct}% of total observations</p><MiniBars data={t.yearly} labels={H.labels} tone={up?"":"imp"}/></div>);})}</div>
+    <div className="sec-h">Audits conducted by plan year <span className="ln"></span></div><MiniBars data={H.audits} labels={H.labels} tone=""/>
+    <div className="box take"><b>So what</b>{H.soWhat} <br/><span style={{color:"var(--muted)"}}>{H.auditsNote}.</span></div></div>);
+}
+function RetailRegions({bu}){
+  const R=bu.regions; const maxP=Math.max(...R.pending.map(x=>x.n)); const maxFY=Math.max(...R.targetFY.map(x=>x.n));
+  return (<div className="panel"><h2>Region-wise Stats</h2><p className="intro">Pending ATRs across Retail's four regions and HQ Office, the target-date financial-year profile, and the audit titles driving each region's backlog.</p>
+    <div className="rgrid">
+      <div><div className="sec-h">Pending ATRs by region / HQ <span className="ln"></span></div>{R.pending.map((r,i)=>(<div className="hbar-row" key={i}><span className="lbl">{r.region}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(r.n/maxP*100)+"%"}}></div></div><span className="val">{r.n}</span></div>))}</div>
+      <div><div className="sec-h">Pending items by target date FY <span className="ln"></span></div>{R.targetFY.map((r,i)=>(<div className="hbar-row" key={i}><span className="lbl">{r.fy}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(r.n/maxFY*100)+"%",background:i>=7?"linear-gradient(90deg,#e26d6d,#c23b3b)":undefined}}></div></div><span className="val">{r.n}</span></div>))}</div>
+    </div>
+    <div className="box take"><b>Key takeaway</b>{R.takeaway}</div>
+    <div className="sec-h">Top audit titles by region <span className="ln"></span></div>
+    {R.topTitles.map((g,i)=>{ const mx=Math.max(...g.titles.map(t=>t[1])); return (<div className="titlegrp" key={i}><h4>{g.region} <b>{g.total} pending</b></h4>{g.titles.map((t,j)=>(<div className="hbar-row" key={j}><span className="lbl" style={{width:220,textAlign:"left"}} title={t[0]}>{t[0]}</span><div className="hbar-track"><div className="hbar-fill" style={{width:(t[1]/mx*100)+"%"}}></div></div><span className="val">{t[1]}</span></div>))}</div>);})}
+  </div>);
+}
+function RetailEscalation({bu}){
+  const E=bu.escalation; const mx=Math.max(...E.rows.map(r=>r.days));
+  return (<div className="panel"><h2>High-Priority Overdue ATRs — Escalation Focus</h2><p className="intro">{E.note}</p>
+    <div className="kpis" style={{marginBottom:20}}>
+      <div className="kpi warn"><div className="k-top"></div><b>{E.summary.overdue}</b><span>High-priority overdue<br/>of {E.summary.of} high-priority</span></div>
+      <div className="kpi warn"><div className="k-top"></div><b>{E.summary.over1yr}</b><span>Overdue &gt; 1 year<br/>{Math.round(E.summary.over1yr/E.summary.overdue*100)}% of overdue</span></div>
+      <div className="kpi hi"><div className="k-top"></div><b>{E.summary.longest.toLocaleString()}</b><span>Longest overdue (days)<br/>since Mar 2019</span></div>
+      <div className="kpi"><div className="k-top"></div><b>{E.summary.inHQ}</b><span>Concentrated in Retail HQ<br/>of {E.summary.overdue} overdue</span></div>
+    </div>
+    <div className="tscroll"><table className="tb"><thead><tr><th>Region</th><th>Audit title</th><th>Audit code</th><th className="n">ATRs</th><th>Oldest target</th><th className="n">Days overdue</th></tr></thead>
+      <tbody>{E.rows.map((r,i)=>(<tr key={i}><td style={{fontWeight:700,color:"var(--navy)",whiteSpace:"nowrap"}}>{r.region}</td><td>{r.title}</td><td style={{whiteSpace:"nowrap"}}>{r.code}</td><td className="n">{r.atrs}</td><td style={{whiteSpace:"nowrap"}}>{r.target}</td><td className="n"><span style={{display:"inline-block",minWidth:120}}><span style={{display:"inline-block",height:8,borderRadius:4,background:"linear-gradient(90deg,#e26d6d,#c23b3b)",width:Math.max(8,r.days/mx*90)+"px",verticalAlign:"middle",marginRight:6}}></span><b style={{color:"var(--red)"}}>{r.days.toLocaleString()}</b></span></td></tr>))}</tbody></table></div></div>);
+}
+function RetailControls({bu}){
+  const S=bu.systemControls;
+  return (<div className="panel"><h2>System Controls Implemented</h2><p className="intro">{S.intro}</p>
+    <div className="sec-h">Retail SBU controls · {S.retail.length} live <span className="ln"></span></div>
+    <div className="tgrid">{S.retail.map((c,i)=>(<div className="ctrl" key={i}><p className="cg">{c.gap}</p><p className="ci">{c.impact}</p><div className="cc"><b>System control</b>{c.ctrl}</div></div>))}</div>
+    <div className="sec-h">Enterprise-wide controls · {S.enterprise.length} live <span className="ln"></span></div>
+    <div className="tgrid">{S.enterprise.map((c,i)=>(<div className="ctrl" key={i}><p className="cg">{c.gap}</p><p className="ci">{c.impact}</p><div className="cc"><b>System control</b>{c.ctrl}</div></div>))}</div></div>);
+}
+const HR_TABS=[
+  {id:"recurring", label:"Recurring Themes", icon:"\uD83D\uDCC8", sub:"Improving · Flat · Efforts"},
+  {id:"repetitive",label:"Repetitive Observations", icon:"\uD83D\uDD01", sub:"High-risk ranking"},
+  {id:"deep",      label:"Root Cause — Deep Dive", icon:"\uD83D\uDD0E", sub:"Per-theme detail"},
+  {id:"region",    label:"Region-wise Stats", icon:"\uD83D\uDDFA\uFE0F", sub:"Ageing & heat-map"},
+  {id:"inputs",    label:"Inputs from Audit Team", icon:"\uD83E\uDDED", sub:"Enablement & ATRs"},
+  {id:"queries",   label:"Queries to Audit", icon:"\u2753", sub:"Raise a query"}
+];
+function HRDetail({bu,onBack}){
+  const [tab,setTab]=useState("recurring"); const [deepInit,setDeepInit]=useState(null); const goDeep=(id)=>{setDeepInit(id);setTab("deep");};
+  const counts={recurring:10,repetitive:bu.repetitiveObs.rows.length,deep:bu.deepDives.length,region:bu.regionStats.openByRegion.length,inputs:bu.auditInputs.rows.length,queries:"+"};
+  return (<div className="wrap"><div className="crumbs"><button onClick={onBack}>Recurring Theme Analysis</button><span className="sep">/</span><b>{bu.name} — {bu.full}</b></div>
+    <div className="kpis"><div className="kpi"><b>{bu.kpis.tracked}</b><span>Points tracked</span></div><div className="kpi warn"><b>{bu.kpis.open}</b><span>Open</span></div><div className="kpi"><b>{bu.kpis.closed}</b><span>Closed</span></div><div className="kpi warn"><b>{bu.kpis.overdue}</b><span>Overdue</span></div><div className="kpi hi"><b>{bu.kpis.highOpen}</b><span>High · open</span></div><div className="kpi"><b>{bu.kpis.oldestYrs}y</b><span>Oldest open</span></div></div>
+    <div className="navcards">{HR_TABS.map(t=>(<div key={t.id} className={"navcard"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}><div className="nc-top"><span className="nc-ic">{t.icon}</span><span className="nc-num">{counts[t.id]}</span></div><div className="nc-label">{t.label}</div><div className="nc-sub">{t.sub}</div></div>))}</div>
+    {tab==="recurring" && <RecurringThemes bu={bu}/>}{tab==="repetitive"&& <Repetitive bu={bu} goDeep={goDeep}/>}{tab==="deep"&& <DeepDive bu={bu} initial={deepInit}/>}{tab==="region"&& <Regions bu={bu}/>}{tab==="inputs"&& <AuditInputs bu={bu}/>}{tab==="queries"&& <Queries bu={bu} themeOptions={bu.repetitiveObs.rows.map(r=>r.theme)}/>}
+  </div>);
+}
+const RETAIL_TABS=[
+  {id:"issues",  label:"Recurring Issue Types", icon:"\uD83D\uDCC8", sub:"Top 10 open types"},
+  {id:"trends",  label:"Issue Type Trends", icon:"\uD83D\uDD01", sub:"2020-26 history"},
+  {id:"region",  label:"Region-wise Stats", icon:"\uD83D\uDDFA\uFE0F", sub:"Regions & audit titles"},
+  {id:"escal",   label:"High-Priority Escalation", icon:"\uD83D\uDD34", sub:"Overdue ATRs"},
+  {id:"controls",label:"System Controls", icon:"\uD83E\uDDED", sub:"Improvements delivered"},
+  {id:"queries", label:"Queries to Audit", icon:"\u2753", sub:"Raise a query"}
+];
+function RetailDetail({bu,onBack}){
+  const [tab,setTab]=useState("issues"); const k=bu.kpis;
+  const counts={issues:bu.issueTypes.length,trends:bu.history.types.length,region:bu.regions.pending.length,escal:bu.escalation.rows.length,controls:bu.systemControls.retail.length+bu.systemControls.enterprise.length,queries:"+"};
+  return (<div className="wrap"><div className="crumbs"><button onClick={onBack}>Recurring Theme Analysis</button><span className="sep">/</span><b>{bu.name} — {bu.full}</b><span style={{marginLeft:8,fontSize:11,color:"var(--muted)"}}>· as on {bu.asOn}</span></div>
+    <div className="kpis"><div className="kpi"><b>{k.pending.toLocaleString()}</b><span>Pending ATRs</span></div><div className="kpi warn"><b>{k.overdue.toLocaleString()}</b><span>Overdue · {k.overduePct}%</span></div><div className="kpi"><b>{k.regions}</b><span>Regions &amp; HQ</span></div><div className="kpi"><b>{k.audits}</b><span>Distinct audits</span></div><div className="kpi hi"><b>{k.highPri}</b><span>High priority · {k.highOverdue} overdue</span></div><div className="kpi ok"><b>{k.closed}</b><span>Closed since 1 Apr</span></div></div>
+    <div className="navcards">{RETAIL_TABS.map(t=>(<div key={t.id} className={"navcard"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}><div className="nc-top"><span className="nc-ic">{t.icon}</span><span className="nc-num">{counts[t.id]}</span></div><div className="nc-label">{t.label}</div><div className="nc-sub">{t.sub}</div></div>))}</div>
+    {tab==="issues" && <RetailIssueTypes bu={bu}/>}{tab==="trends"&& <RetailTrends bu={bu}/>}{tab==="region"&& <RetailRegions bu={bu}/>}{tab==="escal"&& <RetailEscalation bu={bu}/>}{tab==="controls"&& <RetailControls bu={bu}/>}{tab==="queries"&& <Queries bu={bu} themeOptions={bu.issueTypes.map(t=>t.name)}/>}
+  </div>);
+}
+function BUDetail({buId,onBack}){
+  const bu=DB.businessUnits.find(b=>b.id===buId);
+  if(bu.type==="sbu") return <RetailDetail bu={bu} onBack={onBack}/>;
+  return <HRDetail bu={bu} onBack={onBack}/>;
+}
+function ThemeDashboard({onOpen,onBack}){
+  return (<div className="wrap"><div className="crumbs"><button onClick={onBack}>Home</button><span className="sep">/</span><b>Recurring Theme Analysis</b></div>
+    <div className="page-title">Business Units &amp; Entities</div><p className="page-sub">Select a unit to view its recurring themes and issue types, trends, regional statistics, escalations and a channel to raise queries.</p>
+    <div className="grid">{DB.businessUnits.map(bu=>{ const active=bu.status==="active"; return (
+      <div key={bu.id} className={"bu-card"+(active?"":" disabled")} onClick={()=>active&&onOpen(bu.id)}>{active && <div className="accent"></div>}<div className={"pill "+(active?"active":"coming")}>{active?"● Available":"Coming soon"}</div><div className="bu-ic">{bu.icon}</div><div className="bu-name">{bu.name}</div><div className="bu-full">{bu.full}</div>
+        {active ? <div className="bu-stats"><div className="bu-stat"><b>6</b><span>Sections</span></div><div className="bu-stat"><b>{bu.type==="sbu"?bu.kpis.pending.toLocaleString():bu.kpis.open}</b><span>{bu.type==="sbu"?"Pending":"Open pts"}</span></div><div className="bu-stat"><b>{bu.type==="sbu"?bu.kpis.highPri:bu.kpis.highOpen}</b><span>High</span></div></div>
+          : <div className="bu-stats"><div className="bu-stat"><span>Coming soon</span></div></div>}
+      </div>);})}</div></div>);
+}
+function Home({go}){
+  const [total,setTotal]=useState(null);
+  useEffect(()=>{ let alive=true; (async()=>{ const a=await apiGetATR(); let t=a?a.total:null;
+    if(t==null){ try{ const s=JSON.parse(localStorage.getItem(ATR_KEY)); if(s&&s.aggregate) t=s.aggregate.total; }catch(e){} }
+    if(alive) setTotal(t); })(); return ()=>{alive=false;}; },[]);
+  const liveCount=DB.businessUnits.filter(b=>b.status==="active").length;
+  const openTotal = (total!=null?total:DB.atrDefault.total);
+  return (<div className="wrap"><div className="page-title">Internal Audit — Insight Hub</div><p className="page-sub">Choose an area to begin.</p>
+    <div className="home2">
+      <div className="homecard atr" onClick={()=>go("atr")}><div className="ribbon"></div><div className="hc-top">📋</div><h3>ATR Status</h3><p>The audit open-points dashboard — KPI snapshot, SBU/entity scorecard with cycle-over-cycle improvement, overdue concentration, and the legacy backlog (pre-31.03.2024).</p><div className="mini"><div><b>{openTotal.toLocaleString()}</b><span>Open points</span></div><div><b>4 views</b><span>Snapshot · Scorecard · Concentration · Legacy</span></div></div><div className="go">Open ATR Status →</div></div>
+      <div className="homecard rt" onClick={()=>go("themes")}><div className="ribbon"></div><div className="hc-top">📈</div><h3>Recurring Theme Analysis</h3><p>Explore recurring audit themes and issue types by Business Unit — trend analysis, regional statistics, high-priority escalations, system controls and a channel to raise queries.</p><div className="mini"><div><b>{liveCount} units</b><span>Available now</span></div><div><b>6 sections</b><span>per unit</span></div></div><div className="go">Open Recurring Theme Analysis →</div></div>
+    </div></div>);
+}
+function App(){
+  const [view,setView]=useState("home"); const [bu,setBu]=useState(null); const goHome=()=>{setBu(null);setView("home");};
+  return (<div><header className="app"><BrandLogo onClick={goHome}/><div className="brand"><h1>{DB.meta.app}</h1><p>{DB.meta.tagline}</p></div><div className="spacer"></div><div className="org-tag"><b>BPCL</b> · Internal Audit</div></header>
+    {view==="home" && <Home go={setView}/>}{view==="atr" && <ATRStatus onBack={goHome}/>}{view==="themes" && (bu ? <BUDetail buId={bu} onBack={()=>{setBu(null);setView("themes");}}/> : <ThemeDashboard onOpen={setBu} onBack={goHome}/>)}
+    <footer><span className="dot-gold"></span> {DB.meta.app} · BPCL Internal Audit</footer></div>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
 </html>
